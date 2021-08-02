@@ -1,0 +1,243 @@
+{
+  "ALLOWED_MIME_TYPES": {
+    "value": [
+      "image/jpeg"
+    ],
+    "default": [
+      "image/jpeg"
+    ],
+    "options": [
+      "application/pdf",
+      "application/zip",
+      "audio/wav",
+      "image/gif",
+      "image/jpeg",
+      "image/png",
+      "text/plain",
+      "video/webm"
+    ],
+    "type": "array",
+    "mutable": true,
+    "description": "An array of accepted MIME types."
+  },
+  "CHECKSUM_ALGORITHM": {
+    "value": "SHA256",
+    "default": "SHA256",
+    "type": "string",
+    "mutable": true,
+    "description": "The algorithm used for file naming and validating file integrity."
+  },
+  "JWT_EXPIRATION_MS": {
+    "value": 21600000,
+    "default": 21600000,
+    "min": 0,
+    "max": 31556952000,
+    "type": "number",
+    "mutable": true,
+    "description": "The time in milliseconds before a JWT expires."
+  },
+  "JWT_SECRET": {
+    "value": "super-secret",
+    "default": "super-secret",
+    "type": "string",
+    "mutable": true,
+    "description": "The JWT signing secret."
+  },
+  "LOG_ENTIRES_PER_PAGE": {
+    "value": 101,
+    "default": 100,
+    "min": 0,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The number of log entries per page."
+  },
+  "MAX_COMMENT_LINES": {
+    "value": 40,
+    "default": 40,
+    "min": 1,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum number of line breaks allowed in the comment body."
+  },
+  "MAX_FILE_COUNT": {
+    "value": 4,
+    "default": 4,
+    "min": 0,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum number of files that can be uploaded with a post."
+  },
+  "MAX_FILE_SIZE": {
+    "value": 1000000,
+    "default": 1000000,
+    "min": 0,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum file size in bytes."
+  },
+  "MAX_NON_FILE_FIELDS": {
+    "value": 32,
+    "default": 32,
+    "min": 0,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum number of non-file fields attached to the upload form."
+  },
+  "MAX_PART_COUNT": {
+    "value": 32,
+    "default": 32,
+    "min": 0,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum number of parts in a multipart upload."
+  },
+  "MAX_PASSWORD_LENGTH": {
+    "value": 128,
+    "default": 128,
+    "min": 1,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum password length."
+  },
+  "MAX_POST_BODY_LENGTH": {
+    "value": 1800,
+    "default": 1800,
+    "min": 1,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum number of characters allowed in a post body."
+  },
+  "MAX_THREAD_COUNT": {
+    "value": 100,
+    "default": 100,
+    "min": 1,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum number of threads allowed on a board before trimming."
+  },
+  "MAX_THUMBNAIL_HEIGHT": {
+    "value": 250,
+    "default": 250,
+    "min": 1,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum thumbnail height for refitting."
+  },
+  "MAX_THUMBNAIL_WIDTH": {
+    "value": 250,
+    "default": 250,
+    "min": 1,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum thumbnail width for refitting."
+  },
+  "MAX_USERNAME_LENGTH": {
+    "value": 32,
+    "default": 32,
+    "min": 1,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The maximum username length."
+  },
+  "RECAPTCHA_PUBLIC_KEY": {
+      "value": "some-public-key",
+      "default": "some-public-key",
+      "type": "string",
+      "mutable": true,
+      "description": "The public (client-side) key for Recaptcha."
+  },
+  "RECAPTCHA_PRIVATE_KEY": {
+    "value": "some-private-key",
+    "default": "some-private-key",
+    "type": "string",
+    "mutable": true,
+    "description": "The private (server-side) key for Recaptcha."
+  },
+  "RECENT_POSTS_COUNT": {
+    "value": 100,
+    "default": 100,
+    "min": 0,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The number of recent posts to track."
+  },
+  "S3_BUCKET": {
+    "value": "some-bucket",
+    "default": "some-bucket",
+    "type": "string",
+    "mutable": true,
+    "description": "The S3 file upload bucket."
+  },
+  "S3_ENCRYPTION": {
+    "value": "AES256",
+    "default": "AES256",
+    "type": "string",
+    "mutable": true,
+    "description": "The encryption algorithm to use with S3."
+  },
+  "SCAN_KEYS_COUNT": {
+    "value": 10000,
+    "default": 10000,
+    "min": 1,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The number passed to the COUNT option of the Redis SCAN command."
+  },
+  "SERVER_PORT": {
+    "value": 3001,
+    "default": 3001,
+    "min": 0,
+    "max": 65535,
+    "type": "number",
+    "mutable": false,
+    "description": "Port on which the server listens for connections."
+  },
+  "SIMPLE_ENCRYPTION_KEY": {
+    "value": "*chan",
+    "default": "*chan",
+    "type": "string",
+    "mutable": false,
+    "description": "Simple, non-secure encryption key used to convert various strings (e.g., IP addresses) to hashes for storage in Redis."
+  },
+  "THREADS_PER_PAGE": {
+    "value": 10,
+    "default": 10,
+    "min": 0,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The number of threads per index page."
+  },
+  "THREAD_TAIL_COUNT": {
+    "value": 5,
+    "default": 5,
+    "min": 0,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The number of thread tail posts to show on an index page."
+  },
+  "USER_ID_LENGTH": {
+    "value": 6,
+    "default": 6,
+    "min": 6,
+    "max": null,
+    "type": "number",
+    "mutable": true,
+    "description": "The length of each generated user ID."
+  }
+}

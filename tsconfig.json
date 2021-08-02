@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "isolatedModules": true,
+    "sourceMap": true,
+    "rootDirs": ["src", "prisma"],
+    "typeRoots": ["src/@types", "node_modules/@types"],
+    "outDir": "dist",
+    "strict": true,
+    "lib": ["esnext"],
+    "esModuleInterop": true
+  }
+}

@@ -1,0 +1,129 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["referentialActions", "selectRelationCount", "orderByRelation"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Board {
+  id        String   @id @db.VarChar(4)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  title     String   @db.VarChar(32)
+  threads   Thread[]
+  posts     Post[]
+  roles     Role[]
+}
+
+model Thread {
+  id         Int      @id
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  title      String
+  boardId    String   @db.VarChar(4)
+  board      Board    @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  rootPostId Int
+  rootPost   Post     @relation("ThreadRootPost", fields: [rootPostId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  posts      Post[]   @relation("ThreadPost")
+  views      Int      @default(0)
+  sticky     Boolean  @default(false)
+  anchored   Boolean  @default(false)
+  locked     Boolean  @default(false)
+  cycle      Boolean  @default(false)
+  archived   Boolean  @default(false)
+}
+
+model Post {
+  id                Int      @id
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  ipAddress         String
+  name              String   @db.VarChar(16)
+  authorId          String   @db.Char(64)
+  tripcode          String?  @db.Char(10)
+  bodyHtml          String
+  bodyMd            String
+  bannedForThisPost Boolean  @default(false)
+  // Thread relations.
+  threadId          Int?
+  thread            Thread?   @relation("ThreadPost", fields: [threadId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  rootThread        Thread?  @relation("ThreadRootPost")
+  // Post relations. All posts are attached to a root post.
+  rootPostId        Int?
+  rootPost          Post?     @relation("RootPost", fields: [rootPostId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  posts             Post[]   @relation("RootPost")
+  references        Post[]   @relation("PostOnPost", references: [id])
+  referencedBy      Post[]   @relation("PostOnPost", references: [id])
+  // Board relation.
+  boardId           String   @db.VarChar(4)
+  board             Board    @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  // File relations.
+  files             File[]
+  // Mod relation, if post created by a mod.
+  modId             String?
+  mod               Mod?     @relation(fields: [modId], references: [id])
+}
+
+model File {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  filename  String
+  mimetype  String
+  size      Int
+  posts     Post[]
+  nsfw      Boolean
+}
+
+model Mod {
+  id         String     @id @default(cuid())
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  email      String     @unique
+  salt       String     @db.Char(29)
+  password   String     @db.Char(60)
+  username   String     @unique
+  roles      Role[]
+  logEntries LogEntry[]
+  posts      Post[]
+}
+
+model Role {
+  id      String          @id
+  users   Mod[]
+  level   PermissionLevel
+  boardId String          @db.VarChar(4)
+  board   Board           @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+enum PermissionLevel {
+  ADMIN
+  MODERATOR
+  JANITOR
+}
+
+model LogEntry {
+  id        Int       @id @default(autoincrement())
+  createdAt DateTime  @default(now())
+  modId     String
+  mod       Mod       @relation(fields: [modId], references: [id])
+  action    LogAction
+  ipAddress String?
+  boardId   String?
+  threadId  Int?
+  postId    Int?
+}
+
+enum LogAction {
+  LOGGED_IN
+  LOGGED_OUT
+  JANITOR
+}
+
+model Stat {
+  id    String @id
+  value Int
+}
