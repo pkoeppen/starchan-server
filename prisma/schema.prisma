@@ -1,6 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["referentialActions", "selectRelationCount", "orderByRelation"]
+  previewFeatures = ["referentialActions", "selectRelationCount", "orderByRelation", "orderByAggregateGroup"]
 }
 
 datasource db {
@@ -16,6 +16,8 @@ model Board {
   threads   Thread[]
   posts     Post[]
   roles     Role[]
+  reports   Report[]
+  bans      Ban[]
 }
 
 model Thread {
@@ -24,16 +26,17 @@ model Thread {
   updatedAt  DateTime @updatedAt
   title      String
   boardId    String   @db.VarChar(4)
-  board      Board    @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   rootPostId Int
-  rootPost   Post     @relation("ThreadRootPost", fields: [rootPostId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  posts      Post[]   @relation("ThreadPost")
   views      Int      @default(0)
   sticky     Boolean  @default(false)
   anchored   Boolean  @default(false)
   locked     Boolean  @default(false)
   cycle      Boolean  @default(false)
   archived   Boolean  @default(false)
+  board      Board    @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  rootPost   Post     @relation("ThreadRootPost", fields: [rootPostId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  posts      Post[]   @relation("ThreadPost")
+  reports    Report[]
 }
 
 model Post {
@@ -44,16 +47,16 @@ model Post {
   name              String   @db.VarChar(16)
   authorId          String   @db.Char(64)
   tripcode          String?  @db.Char(10)
-  bodyHtml          String
-  bodyMd            String
+  bodyHtml          String?
+  bodyMd            String?
   bannedForThisPost Boolean  @default(false)
   // Thread relations.
   threadId          Int?
-  thread            Thread?   @relation("ThreadPost", fields: [threadId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  thread            Thread?  @relation("ThreadPost", fields: [threadId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   rootThread        Thread?  @relation("ThreadRootPost")
   // Post relations. All posts are attached to a root post.
   rootPostId        Int?
-  rootPost          Post?     @relation("RootPost", fields: [rootPostId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  rootPost          Post?    @relation("RootPost", fields: [rootPostId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   posts             Post[]   @relation("RootPost")
   references        Post[]   @relation("PostOnPost", references: [id])
   referencedBy      Post[]   @relation("PostOnPost", references: [id])
@@ -62,9 +65,13 @@ model Post {
   board             Board    @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   // File relations.
   files             File[]
-  // Mod relation, if post created by a mod.
-  modId             String?
-  mod               Mod?     @relation(fields: [modId], references: [id])
+  // User relation, if post created by a mod.
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id])
+  // Report relations.
+  reports           Report[]
+  // Ban relations.
+  bans              Ban[]
 }
 
 model File {
@@ -74,11 +81,11 @@ model File {
   filename  String
   mimetype  String
   size      Int
-  posts     Post[]
   nsfw      Boolean
+  posts     Post[]
 }
 
-model Mod {
+model User {
   id         String     @id @default(cuid())
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
@@ -89,41 +96,90 @@ model Mod {
   roles      Role[]
   logEntries LogEntry[]
   posts      Post[]
+  bans       Ban[]
 }
 
 model Role {
-  id      String          @id
-  users   Mod[]
+  id      Int             @id @default(autoincrement())
+  boardId String?         @db.VarChar(4)
   level   PermissionLevel
-  boardId String          @db.VarChar(4)
-  board   Board           @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  board   Board?          @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  users   User[]
 }
 
 enum PermissionLevel {
+  OWNER
   ADMIN
   MODERATOR
   JANITOR
 }
 
 model LogEntry {
-  id        Int       @id @default(autoincrement())
-  createdAt DateTime  @default(now())
-  modId     String
-  mod       Mod       @relation(fields: [modId], references: [id])
-  action    LogAction
-  ipAddress String?
-  boardId   String?
-  threadId  Int?
-  postId    Int?
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  metadata  Json?
 }
 
-enum LogAction {
-  LOGGED_IN
-  LOGGED_OUT
-  JANITOR
+enum ReportReason {
+  SPAM
+  OFFTOPIC
+  ILLEGAL
 }
 
 model Stat {
-  id    String @id
+  key   String @id
   value Int
+}
+
+model Report {
+  id        Int          @id @default(autoincrement())
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  postId    Int
+  post      Post         @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  threadId  Int
+  thread    Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  boardId   String       @db.VarChar(4)
+  board     Board        @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reason    ReportReason
+  ipAddress String
+}
+
+model Ban {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String
+  duration  Int
+  universal Boolean
+  reason    String?
+  postId    Int?
+  boardId   String?  @db.VarChar(4)
+  userId    String
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  board     Board?   @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model ChatRoom {
+  id        String      @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  threadId  Int
+  boardId   String   @db.VarChar(4)
+  participants String[]
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  expiresAt DateTime
+  body      String
+  roomId String
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }

@@ -1,8 +1,8 @@
 -- CreateEnum
-CREATE TYPE "PermissionLevel" AS ENUM ('ADMIN', 'MODERATOR', 'JANITOR');
+CREATE TYPE "PermissionLevel" AS ENUM ('OWNER', 'ADMIN', 'MODERATOR', 'JANITOR');
 
 -- CreateEnum
-CREATE TYPE "LogAction" AS ENUM ('LOGGED_IN', 'LOGGED_OUT', 'JANITOR');
+CREATE TYPE "ReportReason" AS ENUM ('SPAM', 'OFFTOPIC', 'ILLEGAL');
 
 -- CreateTable
 CREATE TABLE "Board" (
@@ -41,13 +41,13 @@ CREATE TABLE "Post" (
     "name" VARCHAR(16) NOT NULL,
     "authorId" CHAR(64) NOT NULL,
     "tripcode" CHAR(10),
-    "bodyHtml" TEXT NOT NULL,
-    "bodyMd" TEXT NOT NULL,
+    "bodyHtml" TEXT,
+    "bodyMd" TEXT,
     "bannedForThisPost" BOOLEAN NOT NULL DEFAULT false,
     "threadId" INTEGER,
-    "rootPostId" INTEGER NOT NULL,
+    "rootPostId" INTEGER,
     "boardId" VARCHAR(4) NOT NULL,
-    "modId" TEXT,
+    "userId" TEXT,
 
     PRIMARY KEY ("id")
 );
@@ -66,7 +66,7 @@ CREATE TABLE "File" (
 );
 
 -- CreateTable
-CREATE TABLE "Mod" (
+CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -80,9 +80,9 @@ CREATE TABLE "Mod" (
 
 -- CreateTable
 CREATE TABLE "Role" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "boardId" VARCHAR(4),
     "level" "PermissionLevel" NOT NULL,
-    "boardId" VARCHAR(4) NOT NULL,
 
     PRIMARY KEY ("id")
 );
@@ -91,20 +91,71 @@ CREATE TABLE "Role" (
 CREATE TABLE "LogEntry" (
     "id" SERIAL NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "modId" TEXT NOT NULL,
-    "action" "LogAction" NOT NULL,
-    "ipAddress" TEXT,
-    "boardId" TEXT,
-    "threadId" INTEGER,
-    "postId" INTEGER,
+    "userId" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "metadata" JSONB,
 
     PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Stat" (
-    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     "value" INTEGER NOT NULL,
+
+    PRIMARY KEY ("key")
+);
+
+-- CreateTable
+CREATE TABLE "Report" (
+    "id" SERIAL NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "postId" INTEGER NOT NULL,
+    "threadId" INTEGER NOT NULL,
+    "boardId" VARCHAR(4) NOT NULL,
+    "reason" "ReportReason" NOT NULL,
+    "ipAddress" TEXT NOT NULL,
+
+    PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Ban" (
+    "id" SERIAL NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "ipAddress" TEXT NOT NULL,
+    "duration" INTEGER NOT NULL,
+    "universal" BOOLEAN NOT NULL,
+    "reason" TEXT,
+    "postId" INTEGER,
+    "boardId" VARCHAR(4),
+    "userId" TEXT NOT NULL,
+
+    PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ChatRoom" (
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "threadId" INTEGER NOT NULL,
+    "boardId" VARCHAR(4) NOT NULL,
+    "participants" TEXT[],
+
+    PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ChatMessage" (
+    "id" SERIAL NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "body" TEXT NOT NULL,
+    "roomId" TEXT NOT NULL,
 
     PRIMARY KEY ("id")
 );
@@ -122,8 +173,8 @@ CREATE TABLE "_FileToPost" (
 );
 
 -- CreateTable
-CREATE TABLE "_ModToRole" (
-    "A" TEXT NOT NULL,
+CREATE TABLE "_RoleToUser" (
+    "A" INTEGER NOT NULL,
     "B" TEXT NOT NULL
 );
 
@@ -131,10 +182,10 @@ CREATE TABLE "_ModToRole" (
 CREATE UNIQUE INDEX "Thread_rootPostId_unique" ON "Thread"("rootPostId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Mod.email_unique" ON "Mod"("email");
+CREATE UNIQUE INDEX "User.email_unique" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Mod.username_unique" ON "Mod"("username");
+CREATE UNIQUE INDEX "User.username_unique" ON "User"("username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "_PostOnPost_AB_unique" ON "_PostOnPost"("A", "B");
@@ -149,10 +200,10 @@ CREATE UNIQUE INDEX "_FileToPost_AB_unique" ON "_FileToPost"("A", "B");
 CREATE INDEX "_FileToPost_B_index" ON "_FileToPost"("B");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "_ModToRole_AB_unique" ON "_ModToRole"("A", "B");
+CREATE UNIQUE INDEX "_RoleToUser_AB_unique" ON "_RoleToUser"("A", "B");
 
 -- CreateIndex
-CREATE INDEX "_ModToRole_B_index" ON "_ModToRole"("B");
+CREATE INDEX "_RoleToUser_B_index" ON "_RoleToUser"("B");
 
 -- AddForeignKey
 ALTER TABLE "Thread" ADD FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -170,13 +221,34 @@ ALTER TABLE "Post" ADD FOREIGN KEY ("rootPostId") REFERENCES "Post"("id") ON DEL
 ALTER TABLE "Post" ADD FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Post" ADD FOREIGN KEY ("modId") REFERENCES "Mod"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Post" ADD FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Role" ADD FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "LogEntry" ADD FOREIGN KEY ("modId") REFERENCES "Mod"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "LogEntry" ADD FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Report" ADD FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Report" ADD FOREIGN KEY ("threadId") REFERENCES "Thread"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Report" ADD FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Ban" ADD FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Ban" ADD FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Ban" ADD FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ChatMessage" ADD FOREIGN KEY ("roomId") REFERENCES "ChatRoom"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_PostOnPost" ADD FOREIGN KEY ("A") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -191,7 +263,7 @@ ALTER TABLE "_FileToPost" ADD FOREIGN KEY ("A") REFERENCES "File"("id") ON DELET
 ALTER TABLE "_FileToPost" ADD FOREIGN KEY ("B") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "_ModToRole" ADD FOREIGN KEY ("A") REFERENCES "Mod"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "_RoleToUser" ADD FOREIGN KEY ("A") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "_ModToRole" ADD FOREIGN KEY ("B") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "_RoleToUser" ADD FOREIGN KEY ("B") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

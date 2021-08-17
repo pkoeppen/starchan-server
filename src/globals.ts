@@ -49,6 +49,13 @@ export const redis = new Redis();
  * The global S3 client.
  */
 export const s3 = new aws.S3();
+export const s3Bucket = process.env.S3_BUCKET as string;
+if (!s3Bucket) {
+  logger.error(
+    `Missing required S3_BUCKET environment variable. Terminating process.`
+  );
+  process.exit(1);
+}
 
 /*
  * The global Rekognition client.

@@ -1,23 +1,7 @@
 import * as helpers from '../helpers';
-import { Post, Prisma, Thread } from '@prisma/client';
+import { PermissionLevel, Post, Prisma, Thread } from '@prisma/client';
 import { logger, prisma } from '../globals';
 import crypto from 'crypto';
-
-const postSelectParams = {
-  id: true,
-  name: true,
-  authorId: true,
-  tripcode: true,
-  createdAt: true,
-  bodyHtml: true,
-  bannedForThisPost: true,
-  files: true,
-  referencedBy: {
-    select: {
-      id: true,
-    },
-  },
-};
 
 /*
  * Gets multiple threads.
@@ -30,6 +14,12 @@ export async function getThreadsByPage(
   includeSensitiveData = false
 ): Promise<Thread[]> {
   const skip = (params.page - 1) * 10;
+  const postSelectParams = getPostSelectParams(
+    includeSensitiveData,
+    params.boardId
+  );
+
+  // Fetch the threads.
   const threads = await prisma.thread.findMany({
     where: { boardId: params.boardId },
     orderBy: [
@@ -44,9 +34,7 @@ export async function getThreadsByPage(
     take: 10,
     include: {
       rootPost: {
-        select: includeSensitiveData
-          ? { ipAddress: true, ...postSelectParams }
-          : postSelectParams,
+        select: postSelectParams,
       },
       _count: {
         select: { posts: true },
@@ -55,6 +43,55 @@ export async function getThreadsByPage(
   });
 
   for (const thread of threads) {
+    (thread as any).lastPost = await prisma.post.findFirst({
+      where: {
+        threadId: thread.id,
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      select: {
+        updatedAt: true,
+      },
+    });
+  }
+
+  return threads;
+}
+
+/*
+ * Gets mix of threads from all boards.
+ */
+export async function getAllThreadsByPage(
+  params: {
+    page: number;
+  },
+  includeSensitiveData = false
+): Promise<Thread[]> {
+  const skip = (params.page - 1) * 10;
+  const postSelectParams = getPostSelectParams(includeSensitiveData);
+
+  // Fetch the threads.
+  const threads = await prisma.thread.findMany({
+    orderBy: {
+      views: 'desc',
+    },
+    skip,
+    take: 10,
+    include: {
+      rootPost: {
+        select: postSelectParams,
+      },
+      _count: {
+        select: { posts: true },
+      },
+    },
+  });
+
+  for (const thread of threads) {
+    // TODO - This could be more efficient.
+    // Perhaps update the thread object (blank) when adding post reply, so that
+    // updatedAt is set. Then just select that field above^.
     (thread as any).lastPost = await prisma.post.findFirst({
       where: {
         threadId: thread.id,
@@ -117,21 +154,23 @@ export async function getThread(
   },
   includeSensitiveData = false
 ): Promise<Thread | null> {
-  const thread = await prisma.thread.findFirst({
-    where: { id: params.threadId, boardId: params.boardId },
+  const postSelectParams = getPostSelectParams(
+    includeSensitiveData,
+    params.boardId
+  );
+
+  // Fetch the thread.
+  const thread = await prisma.thread.findUnique({
+    where: { id: params.threadId },
     include: {
       rootPost: {
-        select: includeSensitiveData
-          ? { ipAddress: true, ...postSelectParams }
-          : postSelectParams,
+        select: postSelectParams,
       },
       posts: {
         orderBy: {
           id: 'asc',
         },
-        select: includeSensitiveData
-          ? { ipAddress: true, ...postSelectParams }
-          : postSelectParams,
+        select: postSelectParams,
       },
       _count: {
         select: { posts: true },
@@ -154,6 +193,8 @@ export async function updateThread(
     data,
   });
 
+  logger.debug(`Updated thread ${params.threadId}`);
+
   return thread;
 }
 
@@ -162,6 +203,7 @@ export async function updateThread(
  */
 export async function addThread(
   params: {
+    userId: string | undefined;
     boardId: string;
     title: string;
     name: string;
@@ -175,7 +217,7 @@ export async function addThread(
   // Update stat object to obtain post ID.
   const stat = await prisma.stat.update({
     where: {
-      id: 'PostCount',
+      key: 'PostCount',
     },
     data: {
       value: {
@@ -211,39 +253,50 @@ export async function addThread(
     ? Array.from(metadata.references)
     : null;
 
-  // Create the root post (and the files).
-  const post = (await prisma.post.create({
-    data: {
-      id: rootPostId,
-      ipAddress: params.ipAddress,
-      name: params.name,
-      authorId,
-      tripcode: params.tripcode,
-      bodyMd,
-      bodyHtml,
-      bannedForThisPost: false,
-      board: {
-        connect: {
-          id: params.boardId,
-        },
-      },
-      files: {
-        connectOrCreate: files.map((file) => {
-          return {
-            where: {
-              id: file.id,
-            },
-            create: {
-              id: file.id,
-              size: file.size,
-              filename: file.filename,
-              mimetype: file.mimetype,
-              nsfw: file.nsfw,
-            },
-          };
-        }),
+  // Prepare the root post data.
+  const data: Prisma.PostCreateInput = {
+    id: rootPostId,
+    ipAddress: params.ipAddress,
+    name: params.name,
+    authorId,
+    tripcode: params.tripcode,
+    bodyMd,
+    bodyHtml,
+    bannedForThisPost: false,
+    board: {
+      connect: {
+        id: params.boardId,
       },
     },
+    files: {
+      connectOrCreate: files.map((file) => {
+        return {
+          where: {
+            id: file.id,
+          },
+          create: {
+            id: file.id,
+            size: file.size,
+            filename: file.filename,
+            mimetype: file.mimetype,
+            nsfw: file.nsfw,
+          },
+        };
+      }),
+    },
+  };
+
+  if (params.userId) {
+    data.user = {
+      connect: {
+        id: params.userId,
+      },
+    };
+  }
+
+  // Create the root post.
+  const post = (await prisma.post.create({
+    data,
     select: {
       id: true,
       thread: {
@@ -254,7 +307,7 @@ export async function addThread(
     },
   })) as Partial<Post>;
 
-  // Create thread.
+  // Create the thread.
   await prisma.thread.create({
     data: {
       id: rootPostId,
@@ -297,7 +350,10 @@ export async function addThread(
     }
   }
 
-  // If thread count has exceed 100, trim last thread.
+  logger.debug(`Created new thread ${post.id}`);
+
+  // If thread count has exceeded 100, trim threads.
+  // This retrieves the last thread, after which all threads should be trimmed.
   const threads = await prisma.thread.findMany({
     where: {
       boardId: params.boardId,
@@ -314,22 +370,72 @@ export async function addThread(
         id: 'desc',
       },
     ],
-    take: 100,
+    skip: 99,
+    take: 1,
   });
 
-  // Trim all threads over thread limit.
-  const { count } = await prisma.thread.deleteMany({
-    where: {
-      boardId: params.boardId,
-      NOT: {
+  if (threads.length) {
+    const lastThread = threads[0];
+    const { count } = await prisma.thread.deleteMany({
+      where: {
+        archived: false,
+        sticky: false,
         id: {
-          in: threads.map((thread) => thread.id),
+          lt: lastThread.id,
         },
       },
-    },
-  });
-
-  logger.debug(`Posted new thread; trimmed ${count} others.`);
+    });
+    logger.debug(`Trimmed ${count} threads`);
+  }
 
   return post;
+}
+
+/*
+ * Builds post select parameters.
+ */
+function getPostSelectParams(
+  includeSensitiveData = false,
+  boardId?: string
+): Prisma.PostSelect {
+  const postSelectParams = {
+    id: true,
+    name: true,
+    authorId: true,
+    tripcode: true,
+    createdAt: true,
+    bodyHtml: true,
+    bannedForThisPost: true,
+    files: true,
+    referencedBy: {
+      select: {
+        id: true,
+      },
+    },
+    user: {
+      select: {
+        username: true,
+      },
+    },
+  };
+
+  if (includeSensitiveData) {
+    (postSelectParams as Prisma.PostSelect).ipAddress = true;
+  }
+
+  if (boardId) {
+    // If this post was created by a mod of this board, select the roles.
+    // This will be used to display the moderator tag on the front end.
+    (postSelectParams.user.select as Prisma.UserSelect).roles = {
+      where: {
+        OR: [{ boardId }, { level: PermissionLevel.OWNER }],
+      },
+      select: {
+        level: true,
+        boardId: true,
+      },
+    };
+  }
+
+  return postSelectParams;
 }

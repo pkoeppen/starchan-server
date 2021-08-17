@@ -40,20 +40,28 @@ function getLocalStrategy() {
     async function (this: passportLocal.Strategy, username, password, done) {
       logger.debug(`Logging in username ${username}`);
       try {
-        const mod = await prisma.mod.findUnique({
+        const user = await prisma.user.findUnique({
           where: { username },
+          include: {
+            roles: {
+              select: {
+                level: true,
+                boardId: true,
+              },
+            },
+          },
         });
 
-        if (!mod) {
+        if (!user) {
           return this.fail('Invalid credentials', StatusCodes.UNAUTHORIZED);
         }
 
-        const validPassword = await bcrypt.compare(password, mod.password);
+        const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
           return this.fail('Invalid credentials', StatusCodes.UNAUTHORIZED);
         }
 
-        return done(null, mod);
+        return done(null, user);
       } catch (error) {
         logger.debug(`Login failed: ${error}`);
         return this.fail('Unknown error', StatusCodes.INTERNAL_SERVER_ERROR);
@@ -78,19 +86,19 @@ function getJwtStrategy() {
       payload: any,
       done: passportJwt.VerifiedCallback
     ) {
-      const { expires, mod } = payload;
+      const { expires, user } = payload;
       if (Date.now() > expires) {
         logger.debug('Authentication failed: JWT is expired');
         return this.fail('JWT expired', StatusCodes.UNAUTHORIZED);
       } else {
         const jwt = req.headers.jwt;
-        const jwtBlacklistKey = `jwt:${jwt}`;
+        const jwtBlacklistKey = `blacklist:jwt:${jwt}`;
         const blacklisted = await redis.get(jwtBlacklistKey);
         if (blacklisted) {
           logger.debug('Authentication failed: JWT is blacklisted');
           return this.fail('JWT blacklisted', StatusCodes.UNAUTHORIZED);
         } else {
-          return done(null, { expires, ...mod });
+          return done(null, { expires, ...user });
         }
       }
     }
