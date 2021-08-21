@@ -8,7 +8,7 @@ import isIp from 'is-ip';
 const SIMPLE_ENCRYPTION_KEY = crypto
   .createHash('sha256')
   // .update(config.SIMPLE_ENCRYPTION_KEY)
-  .update('simplekey') // todo
+  .update('starchan') // todo
   .digest('hex')
   .slice(0, 16);
 
@@ -134,6 +134,19 @@ export function validateBoardId(boardId: string): string {
     throw new SafeError('Invalid board ID', StatusCodes.BAD_REQUEST);
   }
   return boardId;
+}
+
+/*
+ * Ensures that the given authorId value is valid.
+ */
+export function validateAuthorId(authorId: string): string {
+  if (!authorId) {
+    throw new SafeError('Missing author ID', StatusCodes.BAD_REQUEST);
+  }
+  if (typeof authorId !== 'string') {
+    throw new SafeError('Invalid author ID', StatusCodes.BAD_REQUEST);
+  }
+  return authorId;
 }
 
 /*

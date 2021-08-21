@@ -27,7 +27,7 @@ export async function getThreadsByPage(
         sticky: 'desc',
       },
       {
-        id: 'desc',
+        bumpedAt: 'desc',
       },
     ],
     skip,
@@ -41,20 +41,6 @@ export async function getThreadsByPage(
       },
     },
   });
-
-  for (const thread of threads) {
-    (thread as any).lastPost = await prisma.post.findFirst({
-      where: {
-        threadId: thread.id,
-      },
-      orderBy: {
-        id: 'desc',
-      },
-      select: {
-        updatedAt: true,
-      },
-    });
-  }
 
   return threads;
 }
@@ -74,7 +60,7 @@ export async function getAllThreadsByPage(
   // Fetch the threads.
   const threads = await prisma.thread.findMany({
     orderBy: {
-      views: 'desc',
+      bumpedAt: 'desc',
     },
     skip,
     take: 10,
@@ -87,23 +73,6 @@ export async function getAllThreadsByPage(
       },
     },
   });
-
-  for (const thread of threads) {
-    // TODO - This could be more efficient.
-    // Perhaps update the thread object (blank) when adding post reply, so that
-    // updatedAt is set. Then just select that field above^.
-    (thread as any).lastPost = await prisma.post.findFirst({
-      where: {
-        threadId: thread.id,
-      },
-      orderBy: {
-        id: 'desc',
-      },
-      select: {
-        updatedAt: true,
-      },
-    });
-  }
 
   return threads;
 }
@@ -137,7 +106,7 @@ export async function getLatestThreads(params: {
       boardId: params.boardId,
     },
     orderBy: {
-      id: 'desc',
+      bumpedAt: 'desc',
     },
     take: 10,
   });
@@ -312,6 +281,7 @@ export async function addThread(
     data: {
       id: rootPostId,
       title: params.title,
+      bumpedAt: new Date(),
       rootPost: {
         connect: {
           id: rootPostId,
@@ -360,14 +330,14 @@ export async function addThread(
       archived: false,
     },
     select: {
-      id: true,
+      bumpedAt: true,
     },
     orderBy: [
       {
         sticky: 'desc',
       },
       {
-        id: 'desc',
+        bumpedAt: 'desc',
       },
     ],
     skip: 99,
@@ -380,8 +350,8 @@ export async function addThread(
       where: {
         archived: false,
         sticky: false,
-        id: {
-          lt: lastThread.id,
+        bumpedAt: {
+          lt: lastThread.bumpedAt,
         },
       },
     });
@@ -400,6 +370,7 @@ function getPostSelectParams(
 ): Prisma.PostSelect {
   const postSelectParams = {
     id: true,
+    sage: true,
     name: true,
     authorId: true,
     tripcode: true,

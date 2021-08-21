@@ -76,6 +76,7 @@ async function addPost(req: Request, res: Response, next: NextFunction) {
     const boardId = thread.boardId;
 
     // Prepare all data.
+    const sage = Boolean(req.body.sage);
     const name = req.body.name
       ? helpers.validatePostName(req.body.name)
       : 'Anonymous';
@@ -94,6 +95,7 @@ async function addPost(req: Request, res: Response, next: NextFunction) {
       userId,
       threadId,
       boardId,
+      sage,
       name,
       ipAddress,
       tripcode,

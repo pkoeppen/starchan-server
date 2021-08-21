@@ -195,6 +195,10 @@ async function seedThread(params: any) {
     },
   });
 
+  // Simulate bumpedAt date.
+  const date = new Date();
+  date.setHours(date.getHours() - random(0, 6));
+
   // Create thread.
   await prisma.thread.create({
     data: {
@@ -205,6 +209,7 @@ async function seedThread(params: any) {
       anchored: params.anchored,
       cycle: params.cycle,
       archived: params.archived,
+      bumpedAt: date,
       rootPost: {
         connect: {
           id: threadId,
@@ -279,6 +284,7 @@ async function seedThread(params: any) {
         threadId: threadId,
         boardId: params.boardId,
         ipAddress,
+        sage: percentChance(5),
         name: 'Anonymous',
         authorId,
         tripcode: undefined,

@@ -11,7 +11,7 @@ function server(done) {
   node = spawn('node', ['-r', 'dotenv/config', 'src/index.js'], {
     stdio: 'inherit',
   });
-  node.on('close', function(code) {
+  node.on('close', function (code) {
     if (code && code !== 0) {
       log.error('Error detected, waiting for changes...');
     }
@@ -23,7 +23,7 @@ function watch() {
   return gulp.watch(['./config.js', './src/**/*.js'], server);
 }
 
-process.on('exit', function() {
+process.on('exit', function () {
   if (node) {
     node.kill();
   }

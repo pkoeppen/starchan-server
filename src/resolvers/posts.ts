@@ -10,6 +10,7 @@ export async function addPost(
     userId: string | undefined;
     threadId: number;
     boardId: string;
+    sage: boolean;
     name: string;
     ipAddress: string;
     tripcode: string;
@@ -58,6 +59,7 @@ export async function addPost(
     name: params.name,
     authorId: params.authorId,
     tripcode: params.tripcode,
+    sage: params.sage,
     bodyMd,
     bodyHtml,
     bannedForThisPost: false,
@@ -121,6 +123,18 @@ export async function addPost(
   if (!includeSensitiveData) {
     // Delete ipAddress field.
     delete post.ipAddress;
+  }
+
+  if (!params.sage) {
+    // Bump the thread.
+    await prisma.thread.update({
+      where: {
+        id: params.threadId,
+      },
+      data: {
+        bumpedAt: new Date(),
+      },
+    });
   }
 
   // If there are references, connect them.
