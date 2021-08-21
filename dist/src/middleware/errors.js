@@ -1,7 +1,7 @@
 "use strict";
-exports.__esModule = true;
+Object.defineProperty(exports, "__esModule", { value: true });
 exports.register = void 0;
-var globals_1 = require("../globals");
+const globals_1 = require("../globals");
 function register(app) {
     app.use(errorMiddleware);
 }
@@ -13,8 +13,8 @@ function errorMiddleware(error, req, res, next) {
     if (res.headersSent) {
         return next(error);
     }
-    var status = 500;
-    var message = 'Internal servor error';
+    let status = 500;
+    let message = 'Internal servor error';
     if (error instanceof globals_1.SafeError) {
         if (error.status) {
             status = error.status;
@@ -28,4 +28,3 @@ function errorMiddleware(error, req, res, next) {
     }
     res.status(status).send(message);
 }
-//# sourceMappingURL=errors.js.map

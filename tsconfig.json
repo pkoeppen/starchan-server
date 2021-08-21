@@ -1,8 +1,9 @@
 {
   "compilerOptions": {
+    "target": "es6",
     "module": "commonjs",
     "isolatedModules": true,
-    "sourceMap": true,
+    "sourceMap": false,
     "rootDirs": ["src", "prisma"],
     "typeRoots": ["src/@types", "node_modules/@types"],
     "outDir": "dist",
