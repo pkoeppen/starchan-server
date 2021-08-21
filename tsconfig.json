@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "module": "commonjs",
     "isolatedModules": true,
     "sourceMap": true,
     "rootDirs": ["src", "prisma"],
