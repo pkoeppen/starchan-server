@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "ts-node-dev src/index.ts",
+    "dev": "ts-node-dev --debug --poll --respawn --transpile-only src/index.ts",
     "seed": "cross-env NODE_ENV=development node -r dotenv/config dev/seed.js",
     "build": "npx prisma generate; tsc",
     "start": "cross-env NODE_ENV=production node dist/src/index.js",

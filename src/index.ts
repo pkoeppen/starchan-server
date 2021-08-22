@@ -13,6 +13,6 @@ controllers.register(app);
 errors.register(app); // Must be registered last.
 
 const port = 3001;
-app.listen(port, 'local.starchan.org', async () => {
+app.listen(port, async () => {
   console.log(`Listening on port ${port}`);
 });

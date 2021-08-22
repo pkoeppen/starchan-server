@@ -43,7 +43,10 @@ export const prisma = new PrismaClient();
 /*
  * The global Redis client.
  */
-export const redis = new Redis();
+export const redis = new Redis({
+  host: 'redis',
+  port: 6379,
+});
 
 /*
  * The global S3 client.

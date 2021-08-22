@@ -15,7 +15,11 @@ const TEN_MINUTES = 60 * 10;
 router.put('/', recaptcha, attach, startChat);
 async function startChat(req: Request, res: Response, next: NextFunction) {
   try {
-    const ipAddress = req.ip;
+    let ipAddress = req.ip;
+    // If this is an address like ::ffff:1.2.3.4, get the IPv4 address.
+    if (ipAddress.includes(':')) {
+      ipAddress = ipAddress.split(':').pop() as string;
+    }
     const authorId = helpers.validateAuthorId(req.body.authorId);
     const threadId = helpers.validateThreadId(req.body.threadId);
     const boardId = helpers.validateBoardId(req.body.boardId);
