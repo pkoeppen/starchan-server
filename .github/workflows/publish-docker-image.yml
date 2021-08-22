@@ -38,7 +38,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: starchan-server
+          images: pkoeppen/starchan-server
 
       - name: Build and Push
         uses: docker/build-push-action@v2
