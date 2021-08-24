@@ -1,16 +1,22 @@
 FROM node:16-alpine
 LABEL org.opencontainers.image.source="https://github.com/pkoeppen/starchan-server"
 
-ARG NODE_ENV
-ENV NODE_ENV ${NODE_ENV}
-
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json /app/
 RUN npm install --silent
 
-COPY . ./
+COPY .env /app/
+COPY tsconfig.json /app/
 
+COPY prisma/ /app/prisma/
+RUN npm run generate;
+
+COPY src/ /app/src/
+RUN npm run build;
+
+ARG NODE_ENV
+ENV NODE_ENV ${NODE_ENV}
 EXPOSE 3001
 
-CMD [ "npx", "ts-node-dev", "--debug", "--poll", "--transpile-only", "src/index.ts" ]
+CMD [ "npm", "start" ]

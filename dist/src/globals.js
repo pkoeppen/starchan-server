@@ -29,6 +29,7 @@ exports.logger = (function () {
  * An error that is safe to display client-side.
  */
 class SafeError extends Error {
+    status;
     constructor(message, status) {
         super(message);
         this.status = status;
@@ -43,7 +44,10 @@ exports.prisma = new client_1.PrismaClient();
 /*
  * The global Redis client.
  */
-exports.redis = new ioredis_1.default();
+exports.redis = new ioredis_1.default({
+    host: 'redis',
+    port: 6379,
+});
 /*
  * The global S3 client.
  */

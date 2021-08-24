@@ -18,15 +18,6 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -39,302 +30,288 @@ const crypto_1 = __importDefault(require("crypto"));
 /*
  * Gets multiple threads.
  */
-function getThreadsByPage(params, includeSensitiveData = false) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const skip = (params.page - 1) * 10;
-        const postSelectParams = getPostSelectParams(includeSensitiveData, params.boardId);
-        // Fetch the threads.
-        const threads = yield globals_1.prisma.thread.findMany({
-            where: { boardId: params.boardId },
-            orderBy: [
-                {
-                    sticky: 'desc',
-                },
-                {
-                    bumpedAt: 'desc',
-                },
-            ],
-            skip,
-            take: 10,
-            include: {
-                rootPost: {
-                    select: postSelectParams,
-                },
-                _count: {
-                    select: { posts: true },
-                },
+async function getThreadsByPage(params, includeSensitiveData = false) {
+    const skip = (params.page - 1) * 10;
+    const postSelectParams = getPostSelectParams(includeSensitiveData, params.boardId);
+    // Fetch the threads.
+    const threads = await globals_1.prisma.thread.findMany({
+        where: { boardId: params.boardId },
+        orderBy: [
+            {
+                sticky: 'desc',
             },
-        });
-        return threads;
+            {
+                bumpedAt: 'desc',
+            },
+        ],
+        skip,
+        take: 10,
+        include: {
+            rootPost: {
+                select: postSelectParams,
+            },
+            _count: {
+                select: { posts: true },
+            },
+        },
     });
+    return threads;
 }
 exports.getThreadsByPage = getThreadsByPage;
 /*
  * Gets mix of threads from all boards.
  */
-function getAllThreadsByPage(params, includeSensitiveData = false) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const skip = (params.page - 1) * 10;
-        const postSelectParams = getPostSelectParams(includeSensitiveData);
-        // Fetch the threads.
-        const threads = yield globals_1.prisma.thread.findMany({
-            orderBy: {
-                bumpedAt: 'desc',
+async function getAllThreadsByPage(params, includeSensitiveData = false) {
+    const skip = (params.page - 1) * 10;
+    const postSelectParams = getPostSelectParams(includeSensitiveData);
+    // Fetch the threads.
+    const threads = await globals_1.prisma.thread.findMany({
+        orderBy: {
+            bumpedAt: 'desc',
+        },
+        skip,
+        take: 10,
+        include: {
+            rootPost: {
+                select: postSelectParams,
             },
-            skip,
-            take: 10,
-            include: {
-                rootPost: {
-                    select: postSelectParams,
-                },
-                _count: {
-                    select: { posts: true },
-                },
+            _count: {
+                select: { posts: true },
             },
-        });
-        return threads;
+        },
     });
+    return threads;
 }
 exports.getAllThreadsByPage = getAllThreadsByPage;
 /*
  * Gets all sticky threads.
  */
-function getStickyThreads(params) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const threads = yield globals_1.prisma.thread.findMany({
-            where: {
-                boardId: params.boardId,
-                sticky: true,
-            },
-            orderBy: {
-                id: 'desc',
-            },
-        });
-        return threads;
+async function getStickyThreads(params) {
+    const threads = await globals_1.prisma.thread.findMany({
+        where: {
+            boardId: params.boardId,
+            sticky: true,
+        },
+        orderBy: {
+            id: 'desc',
+        },
     });
+    return threads;
 }
 exports.getStickyThreads = getStickyThreads;
 /*
  * Gets latest 10 threads.
  */
-function getLatestThreads(params) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const threads = yield globals_1.prisma.thread.findMany({
-            where: {
-                boardId: params.boardId,
-            },
-            orderBy: {
-                bumpedAt: 'desc',
-            },
-            take: 10,
-        });
-        return threads;
+async function getLatestThreads(params) {
+    const threads = await globals_1.prisma.thread.findMany({
+        where: {
+            boardId: params.boardId,
+        },
+        orderBy: {
+            bumpedAt: 'desc',
+        },
+        take: 10,
     });
+    return threads;
 }
 exports.getLatestThreads = getLatestThreads;
 /*
  * Gets one thread.
  */
-function getThread(params, includeSensitiveData = false) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const postSelectParams = getPostSelectParams(includeSensitiveData, params.boardId);
-        // Fetch the thread.
-        const thread = yield globals_1.prisma.thread.findUnique({
-            where: { id: params.threadId },
-            include: {
-                rootPost: {
-                    select: postSelectParams,
-                },
-                posts: {
-                    orderBy: {
-                        id: 'asc',
-                    },
-                    select: postSelectParams,
-                },
-                _count: {
-                    select: { posts: true },
-                },
+async function getThread(params, includeSensitiveData = false) {
+    const postSelectParams = getPostSelectParams(includeSensitiveData, params.boardId);
+    // Fetch the thread.
+    const thread = await globals_1.prisma.thread.findUnique({
+        where: { id: params.threadId },
+        include: {
+            rootPost: {
+                select: postSelectParams,
             },
-        });
-        return thread;
+            posts: {
+                orderBy: {
+                    id: 'asc',
+                },
+                select: postSelectParams,
+            },
+            _count: {
+                select: { posts: true },
+            },
+        },
     });
+    return thread;
 }
 exports.getThread = getThread;
 /*
  * Updates a thread.
  */
-function updateThread(params, data) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const thread = yield globals_1.prisma.thread.update({
-            where: { id: params.threadId },
-            data,
-        });
-        globals_1.logger.debug(`Updated thread ${params.threadId}`);
-        return thread;
+async function updateThread(params, data) {
+    const thread = await globals_1.prisma.thread.update({
+        where: { id: params.threadId },
+        data,
     });
+    globals_1.logger.debug(`Updated thread ${params.threadId}`);
+    return thread;
 }
 exports.updateThread = updateThread;
 /*
  * Adds a new thread.
  */
-function addThread(params, files, includeSensitiveData = false) {
-    return __awaiter(this, void 0, void 0, function* () {
-        // Update stat object to obtain post ID.
-        const stat = yield globals_1.prisma.stat.update({
-            where: {
-                key: 'PostCount',
+async function addThread(params, files, includeSensitiveData = false) {
+    // Update stat object to obtain post ID.
+    const stat = await globals_1.prisma.stat.update({
+        where: {
+            key: 'PostCount',
+        },
+        data: {
+            value: {
+                increment: 1,
             },
-            data: {
-                value: {
-                    increment: 1,
+        },
+    });
+    const rootPostId = stat.value;
+    if (!rootPostId) {
+        throw new Error(`Error incrementing post counter. prisma.stat.update() returned ${JSON.stringify(stat)}`);
+    }
+    // Generate author ID.
+    const authorId = crypto_1.default
+        .createHash('sha256')
+        .update(params.ipAddress + rootPostId)
+        .digest('hex');
+    // Render the post body Markdown.
+    const { original: bodyMd, rendered: bodyHtml, metadata, } = helpers.render(params.body);
+    // Extract references from Markdown metadata.
+    const references = metadata.references
+        ? Array.from(metadata.references)
+        : null;
+    // Prepare the root post data.
+    const data = {
+        id: rootPostId,
+        ipAddress: params.ipAddress,
+        name: params.name,
+        authorId,
+        tripcode: params.tripcode,
+        bodyMd,
+        bodyHtml,
+        bannedForThisPost: false,
+        board: {
+            connect: {
+                id: params.boardId,
+            },
+        },
+        files: {
+            connectOrCreate: files.map((file) => {
+                return {
+                    where: {
+                        id: file.id,
+                    },
+                    create: {
+                        id: file.id,
+                        size: file.size,
+                        filename: file.filename,
+                        mimetype: file.mimetype,
+                        nsfw: file.nsfw,
+                    },
+                };
+            }),
+        },
+    };
+    if (params.userId) {
+        data.user = {
+            connect: {
+                id: params.userId,
+            },
+        };
+    }
+    // Create the root post.
+    const post = (await globals_1.prisma.post.create({
+        data,
+        select: {
+            id: true,
+            thread: {
+                select: {
+                    boardId: true,
                 },
             },
-        });
-        const rootPostId = stat.value;
-        if (!rootPostId) {
-            throw new Error(`Error incrementing post counter. prisma.stat.update() returned ${JSON.stringify(stat)}`);
-        }
-        // Generate author ID.
-        const authorId = crypto_1.default
-            .createHash('sha256')
-            .update(params.ipAddress + rootPostId)
-            .digest('hex');
-        // Render the post body Markdown.
-        const { original: bodyMd, rendered: bodyHtml, metadata, } = helpers.render(params.body);
-        // Extract references from Markdown metadata.
-        const references = metadata.references
-            ? Array.from(metadata.references)
-            : null;
-        // Prepare the root post data.
-        const data = {
+        },
+    }));
+    // Create the thread.
+    await globals_1.prisma.thread.create({
+        data: {
             id: rootPostId,
-            ipAddress: params.ipAddress,
-            name: params.name,
-            authorId,
-            tripcode: params.tripcode,
-            bodyMd,
-            bodyHtml,
-            bannedForThisPost: false,
+            title: params.title,
+            bumpedAt: new Date(),
+            rootPost: {
+                connect: {
+                    id: rootPostId,
+                },
+            },
             board: {
                 connect: {
                     id: params.boardId,
                 },
             },
-            files: {
-                connectOrCreate: files.map((file) => {
-                    return {
-                        where: {
-                            id: file.id,
-                        },
-                        create: {
-                            id: file.id,
-                            size: file.size,
-                            filename: file.filename,
-                            mimetype: file.mimetype,
-                            nsfw: file.nsfw,
-                        },
-                    };
-                }),
-            },
-        };
-        if (params.userId) {
-            data.user = {
-                connect: {
-                    id: params.userId,
-                },
-            };
-        }
-        // Create the root post.
-        const post = (yield globals_1.prisma.post.create({
-            data,
-            select: {
-                id: true,
-                thread: {
-                    select: {
-                        boardId: true,
+        },
+    });
+    if (!includeSensitiveData) {
+        // Delete ipAddress field.
+        delete post.ipAddress;
+    }
+    // If there are references, connect them.
+    if (references) {
+        for (const id of references) {
+            try {
+                await globals_1.prisma.post.update({
+                    where: {
+                        id: post.id,
                     },
-                },
-            },
-        }));
-        // Create the thread.
-        yield globals_1.prisma.thread.create({
-            data: {
-                id: rootPostId,
-                title: params.title,
-                bumpedAt: new Date(),
-                rootPost: {
-                    connect: {
-                        id: rootPostId,
-                    },
-                },
-                board: {
-                    connect: {
-                        id: params.boardId,
-                    },
-                },
-            },
-        });
-        if (!includeSensitiveData) {
-            // Delete ipAddress field.
-            delete post.ipAddress;
-        }
-        // If there are references, connect them.
-        if (references) {
-            for (const id of references) {
-                try {
-                    yield globals_1.prisma.post.update({
-                        where: {
-                            id: post.id,
+                    data: {
+                        references: {
+                            connect: [{ id: id }],
                         },
-                        data: {
-                            references: {
-                                connect: [{ id: id }],
-                            },
-                        },
-                    });
-                }
-                catch (error) {
-                    // Likely thrown because the referenced ID does not exist.
-                }
+                    },
+                });
+            }
+            catch (error) {
+                // Likely thrown because the referenced ID does not exist.
             }
         }
-        globals_1.logger.debug(`Created new thread ${post.id}`);
-        // If thread count has exceeded 100, trim threads.
-        // This retrieves the last thread, after which all threads should be trimmed.
-        const threads = yield globals_1.prisma.thread.findMany({
-            where: {
-                boardId: params.boardId,
-                archived: false,
+    }
+    globals_1.logger.debug(`Created new thread ${post.id}`);
+    // If thread count has exceeded 100, trim threads.
+    // This retrieves the last thread, after which all threads should be trimmed.
+    const threads = await globals_1.prisma.thread.findMany({
+        where: {
+            boardId: params.boardId,
+            archived: false,
+        },
+        select: {
+            bumpedAt: true,
+        },
+        orderBy: [
+            {
+                sticky: 'desc',
             },
-            select: {
-                bumpedAt: true,
+            {
+                bumpedAt: 'desc',
             },
-            orderBy: [
-                {
-                    sticky: 'desc',
-                },
-                {
-                    bumpedAt: 'desc',
-                },
-            ],
-            skip: 99,
-            take: 1,
-        });
-        if (threads.length) {
-            const lastThread = threads[0];
-            const { count } = yield globals_1.prisma.thread.deleteMany({
-                where: {
-                    archived: false,
-                    sticky: false,
-                    bumpedAt: {
-                        lt: lastThread.bumpedAt,
-                    },
-                },
-            });
-            globals_1.logger.debug(`Trimmed ${count} threads`);
-        }
-        return post;
+        ],
+        skip: 99,
+        take: 1,
     });
+    if (threads.length) {
+        const lastThread = threads[0];
+        const { count } = await globals_1.prisma.thread.deleteMany({
+            where: {
+                archived: false,
+                sticky: false,
+                bumpedAt: {
+                    lt: lastThread.bumpedAt,
+                },
+            },
+        });
+        globals_1.logger.debug(`Trimmed ${count} threads`);
+    }
+    return post;
 }
 exports.addThread = addThread;
 /*

@@ -1,3 +1,4 @@
+import * as globals from '../globals';
 import * as helpers from '../helpers';
 import * as resolvers from '../resolvers';
 import { NextFunction, Request, Response } from 'express';
@@ -39,13 +40,13 @@ async function logIn(req: Request, res: Response, next: NextFunction) {
       const expires = Date.now() + duration;
       const token = jwt.sign(
         { expires, user: userClean },
-        process.env.JWT_SECRET as string
+        globals.JWT_SECRET as string
       );
       const cookieOptions = {
         httpOnly: false,
         sameSite: 'lax' as any, // Because TypeScript is retarded.
-        secure: process.env.NODE_ENV === 'production',
-        domain: 'local.starchan.org',
+        secure: true,
+        domain: `starchan.${globals.TLD}`,
         path: '/',
         maxAge: duration,
       };
@@ -73,6 +74,21 @@ async function logout(req: Request, res: Response, next: NextFunction) {
     const tokenExpiry = req.user?.expires as number;
     await helpers.blacklistJwt(jwt, tokenExpiry);
     req.logout();
+
+    // Use identical options to those when cookie was set, excluding maxAge.
+    const cookieOptions = {
+      httpOnly: false,
+      sameSite: 'lax' as any,
+      secure: true,
+      domain: `starchan.${globals.TLD}`,
+      path: '/',
+    };
+
+    // Clear all cookies.
+    res.clearCookie('token', cookieOptions);
+    res.clearCookie('expires', cookieOptions);
+    res.clearCookie('user', cookieOptions);
+
     res.status(StatusCodes.OK).end();
   } catch (error) {
     next(error);

@@ -1,5 +1,14 @@
-# Config files
-config.json
+# dist folder
+dist/
+
+# package-lock.json
+package-lock.json
+
+# Husky
+.husky/
+
+# Report files
+report*.json
 
 # Created by .ignore support plugin (hsz.mobi)
 ### Node template
@@ -79,3 +88,5 @@ sw.*
 
 # Vim swap files
 *.swp
+
+

@@ -27,11 +27,11 @@ async function main() {
   const start = Date.now();
 
   await prisma.board.deleteMany();
-  await prisma.thread.deleteMany({});
-  await prisma.post.deleteMany({});
-  await prisma.file.deleteMany({});
-  await prisma.user.deleteMany({});
-  await prisma.role.deleteMany({});
+  await prisma.thread.deleteMany();
+  await prisma.post.deleteMany();
+  await prisma.file.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.role.deleteMany();
 
   await seedStats();
   await seedBoards();

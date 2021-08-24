@@ -58,7 +58,7 @@ async function addReport(req: Request, res: Response, next: NextFunction) {
 
     const boardId = post.boardId;
     const threadId = (post.threadId || post.rootThread?.id) as number;
-    const ipAddress = req.ip;
+    const ipAddress = req.ipAddress;
 
     // Add the report.
     await resolvers.addReport({ postId, threadId, boardId, reason, ipAddress });

@@ -1,3 +1,4 @@
+import * as globals from '../globals';
 import { SafeError, logger, prisma, redis } from '../globals';
 import { StatusCodes } from 'http-status-codes';
 import axios from 'axios';
@@ -77,7 +78,7 @@ function getJwtStrategy() {
   return new passportJwt.Strategy(
     {
       jwtFromRequest: (req) => req.headers.jwt as string,
-      secretOrKey: process.env.JWT_SECRET,
+      secretOrKey: globals.JWT_SECRET,
       passReqToCallback: true,
     },
     async function (
@@ -114,7 +115,7 @@ async function recaptchaMiddleware(
   next: express.NextFunction
 ): Promise<void> {
   try {
-    const secret = process.env.RECAPTCHA_KEY;
+    const secret = globals.RECAPTCHA_PRIVATE_KEY;
     const token = req.query.recaptcha;
     if (!token) {
       next(new SafeError('Missing RECAPTCHA token', StatusCodes.UNAUTHORIZED));

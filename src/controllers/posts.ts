@@ -73,6 +73,9 @@ async function addPost(req: Request, res: Response, next: NextFunction) {
     }
 
     const userId = req.user?.id;
+    // TODO - mod posts still have authorId. If a mod posts, then logs out
+    // and posts again from the same IP, the posts will have the same authorId.
+    // Is this acceptable?
     const boardId = thread.boardId;
 
     // Prepare all data.
@@ -80,7 +83,7 @@ async function addPost(req: Request, res: Response, next: NextFunction) {
     const name = req.body.name
       ? helpers.validatePostName(req.body.name)
       : 'Anonymous';
-    const ipAddress = req.ip;
+    const ipAddress = req.ipAddress;
     const password = req.body.password
       ? helpers.validatePostPassword(req.body.password)
       : null;

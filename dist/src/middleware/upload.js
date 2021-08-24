@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -23,6 +14,12 @@ const multer_1 = __importDefault(require("multer"));
  * Custom storage engine for Multer.
  */
 class S3Storage {
+    acl;
+    bucket;
+    serverSideEncryption;
+    storageClass;
+    allowedMimeTypes;
+    hashAlgorithm;
     constructor(options) {
         if (!options.bucket) {
             globals_1.logger.error('S3 bucket parameter is required to initialize the multer storage engine.');
@@ -51,61 +48,59 @@ class S3Storage {
     /*
      * Multer upload handler.
      */
-    _handleFile(req, file, callback) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const ipAddress = req.ip;
-                // TODO: check banned
-                const chunks = [];
-                // Prepare the hash.
-                const hash = crypto_1.default.createHash(this.hashAlgorithm).setEncoding('hex');
-                // Push chunks onto the hash as they arrive.
-                file.stream.on('data', (chunk) => {
-                    chunks.push(chunk);
-                    hash.update(chunk);
+    async _handleFile(req, file, callback) {
+        try {
+            const ipAddress = req.ip;
+            // TODO: check banned
+            const chunks = [];
+            // Prepare the hash.
+            const hash = crypto_1.default.createHash(this.hashAlgorithm).setEncoding('hex');
+            // Push chunks onto the hash as they arrive.
+            file.stream.on('data', (chunk) => {
+                chunks.push(chunk);
+                hash.update(chunk);
+            });
+            // End hash when file stream ends.
+            const checksum = await new Promise((resolve) => {
+                file.stream.on('end', async () => {
+                    hash.end();
+                    // Read checksum.
+                    resolve(hash.read());
                 });
-                // End hash when file stream ends.
-                const checksum = yield new Promise((resolve) => {
-                    file.stream.on('end', () => __awaiter(this, void 0, void 0, function* () {
-                        hash.end();
-                        // Read checksum.
-                        resolve(hash.read());
-                    }));
-                });
-                // Determine file type.
-                const buffer = Buffer.concat(chunks);
-                const mimetype = (yield this.getContentType(buffer)) || 'foo';
-                if (!this.allowedMimeTypes.includes(mimetype)) {
-                    return callback(new globals_1.SafeError(`Content type '${mimetype}' not allowed`, http_status_codes_1.StatusCodes.BAD_REQUEST));
-                }
-                let fileData = {
-                    id: checksum,
-                    filename: file.originalname,
-                    mimetype,
-                    size: Buffer.byteLength(buffer),
-                    nsfw: yield isNsfw(buffer),
-                    exists: false,
-                };
-                // If file already exists, skip upload.
-                const exists = yield globals_1.prisma.file.findUnique({
-                    where: { id: checksum },
-                });
-                if (exists) {
-                    fileData.exists = true;
-                    return callback(null, fileData);
-                }
-                if (mimetype.startsWith('image')) {
-                    fileData = yield this.processImage(buffer, fileData);
-                }
-                else {
-                    fileData = yield this.processFile(buffer, fileData);
-                }
-                callback(null, fileData);
+            });
+            // Determine file type.
+            const buffer = Buffer.concat(chunks);
+            const mimetype = (await this.getContentType(buffer)) || 'foo';
+            if (!this.allowedMimeTypes.includes(mimetype)) {
+                return callback(new globals_1.SafeError(`Content type '${mimetype}' not allowed`, http_status_codes_1.StatusCodes.BAD_REQUEST));
             }
-            catch (error) {
-                callback(error);
+            let fileData = {
+                id: checksum,
+                filename: file.originalname,
+                mimetype,
+                size: Buffer.byteLength(buffer),
+                nsfw: await isNsfw(buffer),
+                exists: false,
+            };
+            // If file already exists, skip upload.
+            const exists = await globals_1.prisma.file.findUnique({
+                where: { id: checksum },
+            });
+            if (exists) {
+                fileData.exists = true;
+                return callback(null, fileData);
             }
-        });
+            if (mimetype.startsWith('image')) {
+                fileData = await this.processImage(buffer, fileData);
+            }
+            else {
+                fileData = await this.processFile(buffer, fileData);
+            }
+            callback(null, fileData);
+        }
+        catch (error) {
+            callback(error);
+        }
     }
     /*
      * Multer removal handler.
@@ -115,12 +110,10 @@ class S3Storage {
             return callback(null);
         }
         const bucket = this.bucket;
-        function remove(key) {
-            return __awaiter(this, void 0, void 0, function* () {
-                globals_1.logger.info(`Removing file at ${key}`);
-                const params = { Bucket: bucket, Key: key };
-                return globals_1.s3.deleteObject(params).promise();
-            });
+        async function remove(key) {
+            globals_1.logger.info(`Removing file at ${key}`);
+            const params = { Bucket: bucket, Key: key };
+            return globals_1.s3.deleteObject(params).promise();
         }
         Promise.all([remove(`thumbs/${file.id}`), remove(`files/${file.id}`)])
             .then(() => callback(null))
@@ -129,50 +122,46 @@ class S3Storage {
     /*
      * Determines the content type of the uploaded buffer.
      */
-    getContentType(buffer) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const typeData = yield file_type_1.default.fromBuffer(buffer);
-            let contentType;
-            if (typeData === null || typeData === void 0 ? void 0 : typeData.mime) {
-                contentType = typeData.mime;
-            }
-            else if (is_svg_1.default(buffer)) {
-                contentType = 'image/svg+xml';
-            }
-            else {
-                contentType = 'application/octet-stream';
-            }
-            return contentType;
-        });
+    async getContentType(buffer) {
+        const typeData = await file_type_1.default.fromBuffer(buffer);
+        let contentType;
+        if (typeData?.mime) {
+            contentType = typeData.mime;
+        }
+        else if (is_svg_1.default(buffer)) {
+            contentType = 'image/svg+xml';
+        }
+        else {
+            contentType = 'application/octet-stream';
+        }
+        return contentType;
     }
     /*
      * Uploads the given file to S3.
      */
-    uploadFile(buffer, path, mimetype) {
-        return __awaiter(this, void 0, void 0, function* () {
-            globals_1.logger.info(`Uploading new file to ${this.bucket}/${path}`);
-            const params = {
-                Body: buffer,
-                Key: path,
-                ContentType: mimetype,
-                Bucket: this.bucket,
-                ACL: this.acl,
-                StorageClass: this.storageClass,
-                // CacheControl: this.cacheControl,
-                // ServerSideEncryption: this.serverSideEncryption,
-                // SSEKMSKeyId: this.sseKmsKeyId
-            };
-            const upload = globals_1.s3.upload(params);
-            return new Promise((resolve, reject) => {
-                upload.send((error, result) => {
-                    if (error) {
-                        reject(error);
-                    }
-                    else {
-                        globals_1.logger.info(`Uploaded successfully to ${this.bucket}/${path}`);
-                        resolve(result);
-                    }
-                });
+    async uploadFile(buffer, path, mimetype) {
+        globals_1.logger.info(`Uploading new file to ${this.bucket}/${path}`);
+        const params = {
+            Body: buffer,
+            Key: path,
+            ContentType: mimetype,
+            Bucket: this.bucket,
+            ACL: this.acl,
+            StorageClass: this.storageClass,
+            // CacheControl: this.cacheControl,
+            // ServerSideEncryption: this.serverSideEncryption,
+            // SSEKMSKeyId: this.sseKmsKeyId
+        };
+        const upload = globals_1.s3.upload(params);
+        return new Promise((resolve, reject) => {
+            upload.send((error, result) => {
+                if (error) {
+                    reject(error);
+                }
+                else {
+                    globals_1.logger.info(`Uploaded successfully to ${this.bucket}/${path}`);
+                    resolve(result);
+                }
             });
         });
     }

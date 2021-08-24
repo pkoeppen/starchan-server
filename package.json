@@ -3,22 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "ts-node-dev --debug --poll --respawn --transpile-only src/index.ts",
-    "seed": "cross-env NODE_ENV=development node -r dotenv/config dev/seed.js",
-    "build": "npx prisma generate; tsc",
-    "start": "cross-env NODE_ENV=production node dist/src/index.js",
-    "lint": "eslint --ext .js --ignore-path .gitignore .",
-    "test": "jest",
-    "ts-node": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\""
-  },
-  "lint-staged": {
-    "*.{js,vue}": "eslint",
-    "*.{css,vue}": "stylelint"
+    "build": "tsc",
+    "dev": "ts-node-dev --poll --respawn --transpile-only src/index.ts",
+    "generate": "npx prisma generate",
+    "migrate": "npx prisma migrate",
+    "migrate:dev": "npx prisma migrate dev",
+    "prepare": "husky install",
+    "seed": "npx prisma db seed --preview-feature",
+    "start": "node dist/src/index.js"
   },
   "husky": {
     "hooks": {
-      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
-      "pre-commit": "lint-staged"
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
     }
   },
   "dependencies": {
@@ -29,7 +25,6 @@
     "cookie-parser": "1.4.5",
     "cors": "2.8.5",
     "cross-env": "7.0.3",
-    "dataloader": "2.0.0",
     "dotenv": "10.0.0",
     "escape-html": "1.0.3",
     "express": "4.17.1",
@@ -79,7 +74,7 @@
     "@types/passport-anonymous": "1.0.3",
     "@types/passport-jwt": "3.0.6",
     "@types/passport-local": "1.0.34",
-    "@types/pino": "6.3.9",
+    "@types/pino": "6.3.11",
     "@types/sharp": "0.28.4",
     "@types/socket.io": "3.0.2",
     "@typescript-eslint/eslint-plugin": "4.28.2",
@@ -91,11 +86,8 @@
     "faker": "5.5.3",
     "gulp": "4.0.2",
     "husky": "^7.0.1",
-    "jest": "27.0.6",
-    "lint-staged": "11.0.0",
     "prettier": "2.3.2",
     "prisma": "2.26.0",
-    "ts-node": "10.1.0",
     "ts-node-dev": "1.1.8",
     "typescript": "4.3.5"
   }

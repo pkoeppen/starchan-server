@@ -18,15 +18,6 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const helpers = __importStar(require("../helpers"));
 const resolvers = __importStar(require("../resolvers"));
@@ -40,103 +31,95 @@ const router = express_1.Router();
  * Gets multiple reports.
  */
 router.get('/', auth_1.auth, getReports);
-function getReports(req, res, next) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const boardId = req.query.boardId;
-            const ipAddress = req.query.ipAddress;
-            // Fetch the reports.
-            const reports = yield resolvers.getReports({ boardId, ipAddress });
-            // Send the response.
-            res.status(200).json(reports);
-        }
-        catch (error) {
-            next(error);
-        }
-    });
+async function getReports(req, res, next) {
+    try {
+        const boardId = req.query.boardId;
+        const ipAddress = req.query.ipAddress;
+        // Fetch the reports.
+        const reports = await resolvers.getReports({ boardId, ipAddress });
+        // Send the response.
+        res.status(200).json(reports);
+    }
+    catch (error) {
+        next(error);
+    }
 }
 /*
  * Adds a new report.
  */
 router.put('/', auth_1.recaptcha, auth_1.attach, addReport);
-function addReport(req, res, next) {
-    var _a;
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const postId = helpers.validatePostId(req.body.postId);
-            const reason = helpers.validateReportReason(req.body.reason);
-            // Assert post exists.
-            const post = yield globals_1.prisma.post.findUnique({
-                where: {
-                    id: postId,
-                },
-                select: {
-                    threadId: true,
-                    boardId: true,
-                    rootThread: {
-                        select: {
-                            id: true,
-                        },
+async function addReport(req, res, next) {
+    try {
+        const postId = helpers.validatePostId(req.body.postId);
+        const reason = helpers.validateReportReason(req.body.reason);
+        // Assert post exists.
+        const post = await globals_1.prisma.post.findUnique({
+            where: {
+                id: postId,
+            },
+            select: {
+                threadId: true,
+                boardId: true,
+                rootThread: {
+                    select: {
+                        id: true,
                     },
                 },
-            });
-            if (!post) {
-                throw new globals_1.SafeError('Post not found', http_status_codes_1.StatusCodes.NOT_FOUND);
-            }
-            const boardId = post.boardId;
-            const threadId = (post.threadId || ((_a = post.rootThread) === null || _a === void 0 ? void 0 : _a.id));
-            const ipAddress = req.ip;
-            // Add the report.
-            yield resolvers.addReport({ postId, threadId, boardId, reason, ipAddress });
-            // Send the response.
-            res.status(201).end();
+            },
+        });
+        if (!post) {
+            throw new globals_1.SafeError('Post not found', http_status_codes_1.StatusCodes.NOT_FOUND);
         }
-        catch (error) {
-            next(error);
-        }
-    });
+        const boardId = post.boardId;
+        const threadId = (post.threadId || post.rootThread?.id);
+        const ipAddress = req.ip;
+        // Add the report.
+        await resolvers.addReport({ postId, threadId, boardId, reason, ipAddress });
+        // Send the response.
+        res.status(201).end();
+    }
+    catch (error) {
+        next(error);
+    }
 }
 /*
  * Deletes a report by ID.
  */
 router.delete('/:reportId', auth_1.auth, deleteReport);
-function deleteReport(req, res, next) {
-    var _a;
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const reportId = helpers.validateReportId(req.params.reportId);
-            // Find the report.
-            const report = yield globals_1.prisma.report.findUnique({
-                where: {
-                    id: reportId,
-                },
-                select: {
-                    boardId: true,
-                },
-            });
-            if (!report) {
-                throw new globals_1.SafeError('Report not found', http_status_codes_1.StatusCodes.NOT_FOUND);
-            }
-            const { boardId } = report;
-            // Build params.
-            const params = {
-                reportId,
-            };
-            // Check permissions.
-            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
-            yield helpers.checkPermissions(userId, params, boardId, {
-                default: client_1.PermissionLevel.MODERATOR,
-            });
-            // Delete the report.
-            const deletedReport = yield resolvers.deleteReport({ reportId });
-            // Send the response.
-            res.status(http_status_codes_1.StatusCodes.NO_CONTENT).end();
-            // Add log entry.
-            yield helpers.log('Dismissed report', userId, deletedReport);
+async function deleteReport(req, res, next) {
+    try {
+        const reportId = helpers.validateReportId(req.params.reportId);
+        // Find the report.
+        const report = await globals_1.prisma.report.findUnique({
+            where: {
+                id: reportId,
+            },
+            select: {
+                boardId: true,
+            },
+        });
+        if (!report) {
+            throw new globals_1.SafeError('Report not found', http_status_codes_1.StatusCodes.NOT_FOUND);
         }
-        catch (error) {
-            next(error);
-        }
-    });
+        const { boardId } = report;
+        // Build params.
+        const params = {
+            reportId,
+        };
+        // Check permissions.
+        const userId = req.user?.id;
+        await helpers.checkPermissions(userId, params, boardId, {
+            default: client_1.PermissionLevel.MODERATOR,
+        });
+        // Delete the report.
+        const deletedReport = await resolvers.deleteReport({ reportId });
+        // Send the response.
+        res.status(http_status_codes_1.StatusCodes.NO_CONTENT).end();
+        // Add log entry.
+        await helpers.log('Dismissed report', userId, deletedReport);
+    }
+    catch (error) {
+        next(error);
+    }
 }
 exports.default = router;

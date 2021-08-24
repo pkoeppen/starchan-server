@@ -1,3 +1,4 @@
+import * as globals from '../globals';
 import { LogEntry, PermissionLevel, ReportReason } from '@prisma/client';
 import { SafeError, logger, prisma, redis, s3, s3Bucket } from '../globals';
 import { StatusCodes } from 'http-status-codes';
@@ -7,8 +8,7 @@ import isIp from 'is-ip';
 
 const SIMPLE_ENCRYPTION_KEY = crypto
   .createHash('sha256')
-  // .update(config.SIMPLE_ENCRYPTION_KEY)
-  .update('starchan') // todo
+  .update(globals.SIMPLE_ENCRYPTION_KEY as string)
   .digest('hex')
   .slice(0, 16);
 

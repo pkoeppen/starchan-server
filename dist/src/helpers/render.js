@@ -234,7 +234,7 @@ const tokenPattern = new RegExp((() => {
     const delimiters = [];
     for (const key in tokens) {
         const { start, content, stop } = tokens[key];
-        delimiters.push(`(?<${key}>${start.source}${(content === null || content === void 0 ? void 0 : content.source) || ''}${(stop === null || stop === void 0 ? void 0 : stop.source) || ''})`);
+        delimiters.push(`(?<${key}>${start.source}${content?.source || ''}${stop?.source || ''})`);
     }
     return delimiters.join('|');
 })(), 
@@ -280,6 +280,9 @@ const urlPattern = new RegExp(
     // Optional resource path.
     '(?:[/?#]\\S*)?', 'ig');
 class Formatter {
+    original;
+    metadata;
+    map;
     constructor(str) {
         this.original = '' + (str || '');
         this.metadata = {};
@@ -446,7 +449,7 @@ class Formatter {
             if (token.metadata) {
                 token.metadata(this.metadata, content);
             }
-            if (parent && (!(parent === null || parent === void 0 ? void 0 : parent.embeddableAsParent) || !token.embeddableAsChild)) {
+            if (parent && (!parent?.embeddableAsParent || !token.embeddableAsChild)) {
                 return match;
             }
             else {

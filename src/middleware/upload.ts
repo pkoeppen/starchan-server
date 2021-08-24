@@ -1,3 +1,4 @@
+import * as globals from '../globals';
 import { SafeError, logger, prisma, rekognition, s3 } from '../globals';
 import sharp, { Sharp } from 'sharp';
 import { File } from '@prisma/client';
@@ -83,7 +84,7 @@ class S3Storage {
     callback: (error?: Error | null, fileData?: Record<string, any>) => void
   ) {
     try {
-      const ipAddress = req.ip;
+      const ipAddress = req.ipAddress;
       // TODO: check banned
 
       const chunks: Buffer[] = [];
@@ -280,7 +281,7 @@ class S3Storage {
  */
 export default multer({
   storage: new S3Storage({
-    bucket: process.env.S3_BUCKET,
+    bucket: globals.S3_BUCKET,
   }),
   limits: {
     fileSize: 2000000, // 2 MB

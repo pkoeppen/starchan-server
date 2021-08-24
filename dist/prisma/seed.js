@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -32,30 +23,28 @@ const ipAddresses = Array.from({ length: 10 }).map(generateIpAddress);
 /*
  * Main function.
  */
-function main() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const start = Date.now();
-        yield prisma.board.deleteMany();
-        yield prisma.thread.deleteMany({});
-        yield prisma.post.deleteMany({});
-        yield prisma.file.deleteMany({});
-        yield prisma.user.deleteMany({});
-        yield prisma.role.deleteMany({});
-        yield seedStats();
-        yield seedBoards();
-        yield seedThreads();
-        yield seedUsers();
-        // Update stat object to last post ID.
-        yield prisma.stat.update({
-            where: {
-                key: 'PostCount',
-            },
-            data: {
-                value: counter,
-            },
-        });
-        console.log('Elapsed:', (Date.now() - start) / 1000);
+async function main() {
+    const start = Date.now();
+    await prisma.board.deleteMany();
+    await prisma.thread.deleteMany({});
+    await prisma.post.deleteMany({});
+    await prisma.file.deleteMany({});
+    await prisma.user.deleteMany({});
+    await prisma.role.deleteMany({});
+    await seedStats();
+    await seedBoards();
+    await seedThreads();
+    await seedUsers();
+    // Update stat object to last post ID.
+    await prisma.stat.update({
+        where: {
+            key: 'PostCount',
+        },
+        data: {
+            value: counter,
+        },
     });
+    console.log('Elapsed:', (Date.now() - start) / 1000);
 }
 main()
     .catch((error) => {
@@ -68,302 +57,292 @@ main()
 /*
  * Seeds stat counters.
  */
-function seedStats() {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield prisma.stat.create({
-            data: {
-                key: 'PostCount',
-                value: 0,
-            },
-        });
+async function seedStats() {
+    await prisma.stat.create({
+        data: {
+            key: 'PostCount',
+            value: 0,
+        },
     });
 }
 /*
  * Seeds boards.
  */
-function seedBoards() {
-    return __awaiter(this, void 0, void 0, function* () {
-        // Create site owner role.
-        yield prisma.role.create({
+async function seedBoards() {
+    // Create site owner role.
+    await prisma.role.create({
+        data: {
+            level: client_1.PermissionLevel.OWNER,
+        },
+    });
+    for (const { boardId, title } of boards) {
+        // Seed the board.
+        await prisma.board.create({
             data: {
-                level: client_1.PermissionLevel.OWNER,
+                id: boardId,
+                title,
             },
         });
-        for (const { boardId, title } of boards) {
-            // Seed the board.
-            yield prisma.board.create({
-                data: {
-                    id: boardId,
-                    title,
+        // Seed roles for this board.
+        await prisma.role.createMany({
+            data: [
+                {
+                    boardId,
+                    level: client_1.PermissionLevel.ADMIN,
                 },
-            });
-            // Seed roles for this board.
-            yield prisma.role.createMany({
-                data: [
-                    {
-                        boardId,
-                        level: client_1.PermissionLevel.ADMIN,
-                    },
-                    {
-                        boardId,
-                        level: client_1.PermissionLevel.MODERATOR,
-                    },
-                    {
-                        boardId,
-                        level: client_1.PermissionLevel.JANITOR,
-                    },
-                ],
-            });
-            console.log(`Seeded board /${boardId}/`);
-        }
-    });
+                {
+                    boardId,
+                    level: client_1.PermissionLevel.MODERATOR,
+                },
+                {
+                    boardId,
+                    level: client_1.PermissionLevel.JANITOR,
+                },
+            ],
+        });
+        console.log(`Seeded board /${boardId}/`);
+    }
 }
 /*
  * Seeds threads.
  */
-function seedThreads() {
-    return __awaiter(this, void 0, void 0, function* () {
-        for (const { boardId } of boards) {
-            // Seed sticky threads.
-            for (let i = 0; i < 3; i++) {
-                yield seedThread({
-                    title: faker_1.default.lorem.sentence(),
-                    boardId,
-                    sticky: true,
-                    locked: false,
-                    anchored: false,
-                    cycle: false,
-                    archived: false,
-                });
-            }
-            // Seed regular threads.
-            for (let i = 0; i < 17; i++) {
-                yield seedThread({
-                    title: faker_1.default.lorem.sentence(),
-                    boardId,
-                    sticky: false,
-                    locked: percentChance(10),
-                    anchored: percentChance(10),
-                    cycle: percentChance(10),
-                    archived: false,
-                });
-            }
+async function seedThreads() {
+    for (const { boardId } of boards) {
+        // Seed sticky threads.
+        for (let i = 0; i < 3; i++) {
+            await seedThread({
+                title: faker_1.default.lorem.sentence(),
+                boardId,
+                sticky: true,
+                locked: false,
+                anchored: false,
+                cycle: false,
+                archived: false,
+            });
         }
-    });
+        // Seed regular threads.
+        for (let i = 0; i < 17; i++) {
+            await seedThread({
+                title: faker_1.default.lorem.sentence(),
+                boardId,
+                sticky: false,
+                locked: percentChance(10),
+                anchored: percentChance(10),
+                cycle: percentChance(10),
+                archived: false,
+            });
+        }
+    }
 }
 /*
  * Seeds one thread.
  */
-function seedThread(params) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const threadId = ++counter;
-        const ipAddress = getRandomIpAddress();
-        const authorId = crypto_1.default
-            .createHash('sha256')
-            .update(ipAddress + threadId)
-            .digest('hex');
-        // Create root post.
-        const bodyMd = generateRandomPostBody();
-        const { rendered: bodyHtml } = helpers_1.render(bodyMd);
-        yield prisma.post.create({
-            data: {
-                id: threadId,
+async function seedThread(params) {
+    const threadId = ++counter;
+    const ipAddress = getRandomIpAddress();
+    const authorId = crypto_1.default
+        .createHash('sha256')
+        .update(ipAddress + threadId)
+        .digest('hex');
+    // Create root post.
+    const bodyMd = generateRandomPostBody();
+    const { rendered: bodyHtml } = helpers_1.render(bodyMd);
+    await prisma.post.create({
+        data: {
+            id: threadId,
+            ipAddress,
+            name: 'Anonymous',
+            authorId,
+            tripcode: undefined,
+            bodyMd,
+            bodyHtml,
+            bannedForThisPost: percentChance(5),
+            board: {
+                connect: {
+                    id: params.boardId,
+                },
+            },
+            files: {
+                connectOrCreate: getRandomFiles().map((file) => {
+                    return {
+                        where: {
+                            id: file.id,
+                        },
+                        create: {
+                            id: file.id,
+                            size: file.size,
+                            filename: file.filename,
+                            mimetype: file.mimetype,
+                            nsfw: file.nsfw,
+                        },
+                    };
+                }),
+            },
+        },
+    });
+    // Simulate bumpedAt date.
+    const date = new Date();
+    date.setHours(date.getHours() - random(0, 6));
+    // Create thread.
+    await prisma.thread.create({
+        data: {
+            id: threadId,
+            title: params.title,
+            sticky: params.sticky,
+            locked: params.locked,
+            anchored: params.anchored,
+            cycle: params.cycle,
+            archived: params.archived,
+            bumpedAt: date,
+            rootPost: {
+                connect: {
+                    id: threadId,
+                },
+            },
+            board: {
+                connect: {
+                    id: params.boardId,
+                },
+            },
+        },
+    });
+    // Create first reply with all available formatting useres.
+    const bodyMdFormatting = [
+        '*bold*',
+        '/italic/',
+        '_underline_',
+        '~strikethrough~',
+        '`code`',
+        '^sup^',
+        '¡sub¡',
+        '[spoiler]',
+        '>greentext',
+        '<redtext',
+        '(((echoes)))',
+        '>>123',
+        'Here is a footnote[ref 1 https://google.com "Some Article Title"].',
+    ].join('\n');
+    const { rendered: bodyHtmlFormatting } = helpers_1.render(bodyMdFormatting);
+    await prisma.post.create({
+        data: {
+            id: ++counter,
+            thread: {
+                connect: {
+                    id: threadId,
+                },
+            },
+            rootPost: {
+                connect: {
+                    id: threadId,
+                },
+            },
+            board: {
+                connect: {
+                    id: params.boardId,
+                },
+            },
+            ipAddress,
+            name: 'Anonymous',
+            authorId,
+            tripcode: undefined,
+            bodyMd: bodyMdFormatting,
+            bodyHtml: bodyHtmlFormatting,
+            bannedForThisPost: percentChance(5),
+        },
+    });
+    // Create reply posts.
+    await prisma.post.createMany({
+        data: Array.from({ length: random(1, 250) }).map((obj, i) => {
+            const ipAddress = getRandomIpAddress();
+            const authorId = crypto_1.default
+                .createHash('sha256')
+                .update(ipAddress + threadId)
+                .digest('hex');
+            const bodyMd = generateRandomPostBody();
+            const { rendered: bodyHtml } = helpers_1.render(bodyMd);
+            return {
+                id: ++counter,
+                rootPostId: threadId,
+                threadId: threadId,
+                boardId: params.boardId,
                 ipAddress,
+                sage: percentChance(5),
                 name: 'Anonymous',
                 authorId,
                 tripcode: undefined,
                 bodyMd,
                 bodyHtml,
                 bannedForThisPost: percentChance(5),
-                board: {
-                    connect: {
-                        id: params.boardId,
-                    },
-                },
-                files: {
-                    connectOrCreate: getRandomFiles().map((file) => {
-                        return {
-                            where: {
-                                id: file.id,
-                            },
-                            create: {
-                                id: file.id,
-                                size: file.size,
-                                filename: file.filename,
-                                mimetype: file.mimetype,
-                                nsfw: file.nsfw,
-                            },
-                        };
-                    }),
-                },
-            },
-        });
-        // Simulate bumpedAt date.
-        const date = new Date();
-        date.setHours(date.getHours() - random(0, 6));
-        // Create thread.
-        yield prisma.thread.create({
-            data: {
-                id: threadId,
-                title: params.title,
-                sticky: params.sticky,
-                locked: params.locked,
-                anchored: params.anchored,
-                cycle: params.cycle,
-                archived: params.archived,
-                bumpedAt: date,
-                rootPost: {
-                    connect: {
-                        id: threadId,
-                    },
-                },
-                board: {
-                    connect: {
-                        id: params.boardId,
-                    },
-                },
-            },
-        });
-        // Create first reply with all available formatting useres.
-        const bodyMdFormatting = [
-            '*bold*',
-            '/italic/',
-            '_underline_',
-            '~strikethrough~',
-            '`code`',
-            '^sup^',
-            '¡sub¡',
-            '[spoiler]',
-            '>greentext',
-            '<redtext',
-            '(((echoes)))',
-            '>>123',
-            'Here is a footnote[ref 1 https://google.com "Some Article Title"].',
-        ].join('\n');
-        const { rendered: bodyHtmlFormatting } = helpers_1.render(bodyMdFormatting);
-        yield prisma.post.create({
-            data: {
-                id: ++counter,
-                thread: {
-                    connect: {
-                        id: threadId,
-                    },
-                },
-                rootPost: {
-                    connect: {
-                        id: threadId,
-                    },
-                },
-                board: {
-                    connect: {
-                        id: params.boardId,
-                    },
-                },
-                ipAddress,
-                name: 'Anonymous',
-                authorId,
-                tripcode: undefined,
-                bodyMd: bodyMdFormatting,
-                bodyHtml: bodyHtmlFormatting,
-                bannedForThisPost: percentChance(5),
-            },
-        });
-        // Create reply posts.
-        yield prisma.post.createMany({
-            data: Array.from({ length: random(1, 250) }).map((obj, i) => {
-                const ipAddress = getRandomIpAddress();
-                const authorId = crypto_1.default
-                    .createHash('sha256')
-                    .update(ipAddress + threadId)
-                    .digest('hex');
-                const bodyMd = generateRandomPostBody();
-                const { rendered: bodyHtml } = helpers_1.render(bodyMd);
-                return {
-                    id: ++counter,
-                    rootPostId: threadId,
-                    threadId: threadId,
-                    boardId: params.boardId,
-                    ipAddress,
-                    sage: percentChance(5),
-                    name: 'Anonymous',
-                    authorId,
-                    tripcode: undefined,
-                    bodyMd,
-                    bodyHtml,
-                    bannedForThisPost: percentChance(5),
-                };
-            }),
-        });
-        console.log(`Seeded thread /${params.boardId}/${threadId}/`);
+            };
+        }),
     });
+    console.log(`Seeded thread /${params.boardId}/${threadId}/`);
 }
 /*
  * Seeds user users.
  */
-function seedUsers() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const users = [
-            {
-                email: 'owner@starchan.org',
-                password: 'password',
-                username: 'asterisk',
-                permissionLevel: client_1.PermissionLevel.OWNER,
-            },
-            {
-                email: 'admin@starchan.org',
-                password: 'password',
-                username: 'admin',
-                permissionLevel: client_1.PermissionLevel.ADMIN,
-            },
-            {
-                email: 'moderator@starchan.org',
-                password: 'password',
-                username: 'moderator',
-                permissionLevel: client_1.PermissionLevel.MODERATOR,
-            },
-            {
-                email: 'janitor@starchan.org',
-                password: 'password',
-                username: 'janitor',
-                permissionLevel: client_1.PermissionLevel.JANITOR,
-            },
-        ];
-        for (const user of users) {
-            const salt = bcrypt_1.default.genSaltSync();
-            const password = bcrypt_1.default.hashSync(user.password, salt);
-            const data = {
-                email: user.email,
-                username: user.username,
-                salt,
-                password,
+async function seedUsers() {
+    const users = [
+        {
+            email: 'owner@starchan.org',
+            password: 'password',
+            username: 'asterisk',
+            permissionLevel: client_1.PermissionLevel.OWNER,
+        },
+        {
+            email: 'admin@starchan.org',
+            password: 'password',
+            username: 'admin',
+            permissionLevel: client_1.PermissionLevel.ADMIN,
+        },
+        {
+            email: 'moderator@starchan.org',
+            password: 'password',
+            username: 'moderator',
+            permissionLevel: client_1.PermissionLevel.MODERATOR,
+        },
+        {
+            email: 'janitor@starchan.org',
+            password: 'password',
+            username: 'janitor',
+            permissionLevel: client_1.PermissionLevel.JANITOR,
+        },
+    ];
+    for (const user of users) {
+        const salt = bcrypt_1.default.genSaltSync();
+        const password = bcrypt_1.default.hashSync(user.password, salt);
+        const data = {
+            email: user.email,
+            username: user.username,
+            salt,
+            password,
+        };
+        if (user.permissionLevel === client_1.PermissionLevel.OWNER) {
+            // Connect the OWNER role.
+            const role = await prisma.role.findFirst({
+                where: {
+                    level: client_1.PermissionLevel.OWNER,
+                },
+            });
+            data.roles = {
+                connect: [{ id: role?.id }],
             };
-            if (user.permissionLevel === client_1.PermissionLevel.OWNER) {
-                // Connect the OWNER role.
-                const role = yield prisma.role.findFirst({
-                    where: {
-                        level: client_1.PermissionLevel.OWNER,
-                    },
-                });
-                data.roles = {
-                    connect: [{ id: role === null || role === void 0 ? void 0 : role.id }],
-                };
-            }
-            else {
-                // Connect all roles with this user's permission level.
-                const roles = yield prisma.role.findMany({
-                    where: {
-                        level: user.permissionLevel,
-                    },
-                });
-                data.roles = {
-                    connect: roles.map(({ id }) => ({ id })),
-                };
-            }
-            // Seed the user.
-            yield prisma.user.create({ data });
-            console.log(`Seeded user ${user.username} (${user.email})`);
         }
-    });
+        else {
+            // Connect all roles with this user's permission level.
+            const roles = await prisma.role.findMany({
+                where: {
+                    level: user.permissionLevel,
+                },
+            });
+            data.roles = {
+                connect: roles.map(({ id }) => ({ id })),
+            };
+        }
+        // Seed the user.
+        await prisma.user.create({ data });
+        console.log(`Seeded user ${user.username} (${user.email})`);
+    }
 }
 /*
  * Returns a random whole number (min <= n < max) in the given range.

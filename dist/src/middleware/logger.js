@@ -28,6 +28,8 @@ function loggerMiddleware(req, res, next) {
  * A little class to time things in nanoseconds.
  */
 class Nanotimer {
+    start;
+    elapsed;
     constructor() {
         this.start = process.hrtime();
         this.elapsed = 0;

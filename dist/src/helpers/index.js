@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -83,15 +74,13 @@ exports.decrypt = decrypt;
 /*
  * Blacklists the given JWT and sets an expiry on the key.
  */
-const blacklistJwt = function (jwt, expiry // Milliseconds since epoch.
+const blacklistJwt = async function (jwt, expiry // Milliseconds since epoch.
 ) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const jwtKey = `blacklist:jwt:${jwt}`;
-        const multi = globals_1.redis.multi();
-        multi.set(jwtKey, 1);
-        multi.expireat(jwtKey, Math.ceil(expiry / 1000)); // EXPIREAT takes seconds.
-        yield multi.exec();
-    });
+    const jwtKey = `blacklist:jwt:${jwt}`;
+    const multi = globals_1.redis.multi();
+    multi.set(jwtKey, 1);
+    multi.expireat(jwtKey, Math.ceil(expiry / 1000)); // EXPIREAT takes seconds.
+    await multi.exec();
 };
 exports.blacklistJwt = blacklistJwt;
 /*
@@ -165,17 +154,15 @@ exports.validateBanId = validateBanId;
 /*
  * Ensures that the given board exists.
  */
-function assertBoardExists(boardId) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const board = yield globals_1.prisma.board.findUnique({
-            where: {
-                id: boardId,
-            },
-        });
-        if (!board) {
-            throw new globals_1.SafeError('Board does not exist', http_status_codes_1.StatusCodes.NOT_FOUND);
-        }
+async function assertBoardExists(boardId) {
+    const board = await globals_1.prisma.board.findUnique({
+        where: {
+            id: boardId,
+        },
     });
+    if (!board) {
+        throw new globals_1.SafeError('Board does not exist', http_status_codes_1.StatusCodes.NOT_FOUND);
+    }
 }
 exports.assertBoardExists = assertBoardExists;
 /*
@@ -207,59 +194,57 @@ exports.validateIpAddress = validateIpAddress;
 /*
  * Ensures that the user has sufficient permissions.
  */
-function checkPermissions(userId, params, boardId, conditions) {
-    return __awaiter(this, void 0, void 0, function* () {
-        // Fetch this user's roles.
-        const user = yield globals_1.prisma.user.findUnique({
-            where: {
-                id: userId,
-            },
-            include: {
-                roles: {
-                    select: {
-                        level: true,
-                        boardId: true,
-                    },
+async function checkPermissions(userId, params, boardId, conditions) {
+    // Fetch this user's roles.
+    const user = await globals_1.prisma.user.findUnique({
+        where: {
+            id: userId,
+        },
+        include: {
+            roles: {
+                select: {
+                    level: true,
+                    boardId: true,
                 },
             },
-        });
-        let roles = user === null || user === void 0 ? void 0 : user.roles;
-        if (!roles) {
-            throw new globals_1.SafeError('Insufficient permissions', http_status_codes_1.StatusCodes.FORBIDDEN);
-        }
-        if (roles.some((role) => role.level === client_1.PermissionLevel.OWNER)) {
-            return; // Site owner can do anything.
-        }
-        // Determine the highest permission level required for this action.
-        let highestRequiredLevel = conditions.default;
-        const enumerated = {
-            [client_1.PermissionLevel.OWNER]: 4,
-            [client_1.PermissionLevel.ADMIN]: 3,
-            [client_1.PermissionLevel.MODERATOR]: 2,
-            [client_1.PermissionLevel.JANITOR]: 1,
-        };
-        for (const key in params) {
-            if (!conditions.hasOwnProperty(key) || !params[key]) {
-                // If there is no condition for this parameter, or if the
-                // parameter is false, skip it.
-                continue;
-            }
-            const level = conditions[key];
-            const n = enumerated[level];
-            if (n > enumerated[highestRequiredLevel]) {
-                highestRequiredLevel = level;
-            }
-        }
-        // If a board ID was given, filter for roles on that board.
-        if (boardId) {
-            roles = roles.filter((role) => role.boardId === boardId);
-        }
-        // Determine if the user has permission.
-        const hasPermission = roles.some((role) => enumerated[role.level] >= enumerated[highestRequiredLevel]);
-        if (!hasPermission) {
-            throw new globals_1.SafeError('Insufficient permissions', http_status_codes_1.StatusCodes.FORBIDDEN);
-        }
+        },
     });
+    let roles = user?.roles;
+    if (!roles) {
+        throw new globals_1.SafeError('Insufficient permissions', http_status_codes_1.StatusCodes.FORBIDDEN);
+    }
+    if (roles.some((role) => role.level === client_1.PermissionLevel.OWNER)) {
+        return; // Site owner can do anything.
+    }
+    // Determine the highest permission level required for this action.
+    let highestRequiredLevel = conditions.default;
+    const enumerated = {
+        [client_1.PermissionLevel.OWNER]: 4,
+        [client_1.PermissionLevel.ADMIN]: 3,
+        [client_1.PermissionLevel.MODERATOR]: 2,
+        [client_1.PermissionLevel.JANITOR]: 1,
+    };
+    for (const key in params) {
+        if (!conditions.hasOwnProperty(key) || !params[key]) {
+            // If there is no condition for this parameter, or if the
+            // parameter is false, skip it.
+            continue;
+        }
+        const level = conditions[key];
+        const n = enumerated[level];
+        if (n > enumerated[highestRequiredLevel]) {
+            highestRequiredLevel = level;
+        }
+    }
+    // If a board ID was given, filter for roles on that board.
+    if (boardId) {
+        roles = roles.filter((role) => role.boardId === boardId);
+    }
+    // Determine if the user has permission.
+    const hasPermission = roles.some((role) => enumerated[role.level] >= enumerated[highestRequiredLevel]);
+    if (!hasPermission) {
+        throw new globals_1.SafeError('Insufficient permissions', http_status_codes_1.StatusCodes.FORBIDDEN);
+    }
 }
 exports.checkPermissions = checkPermissions;
 /*
@@ -347,25 +332,23 @@ exports.validateUsername = validateUsername;
 /*
  * Removes all given files from the database and S3.
  */
-function removeFiles(files) {
-    return __awaiter(this, void 0, void 0, function* () {
-        // Only remove files that don't already exist in the database.
-        const idArray = files.filter((file) => !file.exists).map((file) => file.id);
-        // Delete files from database.
-        yield globals_1.prisma.file.deleteMany({
-            where: {
-                id: {
-                    in: idArray,
-                },
+async function removeFiles(files) {
+    // Only remove files that don't already exist in the database.
+    const idArray = files.filter((file) => !file.exists).map((file) => file.id);
+    // Delete files from database.
+    await globals_1.prisma.file.deleteMany({
+        where: {
+            id: {
+                in: idArray,
             },
-        });
-        globals_1.logger.debug(`Removed ${idArray.length} ${idArray.length > 1 ? 'files' : 'file'} from the database`);
-        // Delete files from S3.
-        for (const id of idArray) {
-            yield globals_1.s3.deleteObject({ Bucket: globals_1.s3Bucket, Key: `files/${id}` }).promise();
-            yield globals_1.s3.deleteObject({ Bucket: globals_1.s3Bucket, Key: `thumbs/${id}` }).promise();
-            globals_1.logger.debug(`Removed file ${id} from S3`);
-        }
+        },
     });
+    globals_1.logger.debug(`Removed ${idArray.length} ${idArray.length > 1 ? 'files' : 'file'} from the database`);
+    // Delete files from S3.
+    for (const id of idArray) {
+        await globals_1.s3.deleteObject({ Bucket: globals_1.s3Bucket, Key: `files/${id}` }).promise();
+        await globals_1.s3.deleteObject({ Bucket: globals_1.s3Bucket, Key: `thumbs/${id}` }).promise();
+        globals_1.logger.debug(`Removed file ${id} from S3`);
+    }
 }
 exports.removeFiles = removeFiles;

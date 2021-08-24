@@ -133,7 +133,7 @@ async function addThread(req: Request, res: Response, next: NextFunction) {
     }
 
     // Prepare the data.
-    const ipAddress = req.ip;
+    const ipAddress = req.ipAddress;
     const userId = req.user?.id;
     const name = req.body.name
       ? helpers.validatePostName(req.body.name)

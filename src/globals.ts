@@ -9,17 +9,16 @@ aws.config.update({ region: 'us-east-1' });
  * Configures and returns a logger instance.
  */
 export const logger = (function () {
-  const pinoPrettyOptions = {
-    colorize: true,
-    translateTime: 'HH:MM:ss.l',
-  };
   const pinoOptions = {
     name: 'starchan-server',
-    prettyPrint:
-      process.env.NODE_ENV === 'production' ? false : pinoPrettyOptions,
+    prettyPrint: {
+      colorize: process.env.NODE_ENV !== 'production',
+      translateTime: 'HH:MM:ss.l',
+    },
   };
   const logger = pino(pinoOptions);
-  logger.level = process.env.NODE_ENV === 'production' ? 'error' : 'debug';
+  //logger.level = process.env.NODE_ENV === 'production' ? 'error' : 'debug';
+  logger.level = 'debug';
   return logger;
 })();
 
@@ -64,3 +63,46 @@ if (!s3Bucket) {
  * The global Rekognition client.
  */
 export const rekognition = new aws.Rekognition();
+
+/*
+ * Set and verify environment variables.
+ */
+let missingEnvironmentVariable = false;
+
+export const TLD = process.env.TLD;
+if (!TLD) {
+  logger.error("Fatal error: Missing environment variable 'TLD'");
+  missingEnvironmentVariable = true;
+}
+
+export const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  logger.error("Fatal error: Missing environment variable 'JWT_SECRET'");
+  missingEnvironmentVariable = true;
+}
+
+export const RECAPTCHA_PRIVATE_KEY = process.env.RECAPTCHA_PRIVATE_KEY;
+if (!RECAPTCHA_PRIVATE_KEY) {
+  logger.error(
+    "Fatal error: Missing environment variable 'RECAPTCHA_PRIVATE_KEY'"
+  );
+  missingEnvironmentVariable = true;
+}
+
+export const S3_BUCKET = process.env.S3_BUCKET;
+if (!S3_BUCKET) {
+  logger.error("Fatal error: Missing environment variable 'S3_BUCKET'");
+  missingEnvironmentVariable = true;
+}
+
+export const SIMPLE_ENCRYPTION_KEY = process.env.SIMPLE_ENCRYPTION_KEY;
+if (!SIMPLE_ENCRYPTION_KEY) {
+  logger.error(
+    "Fatal error: Missing environment variable 'SIMPLE_ENCRYPTION_KEY'"
+  );
+  missingEnvironmentVariable = true;
+}
+
+if (missingEnvironmentVariable) {
+  process.exit(1);
+}
