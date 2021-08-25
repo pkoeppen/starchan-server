@@ -2,7 +2,7 @@ import * as globals from '../globals';
 import { SafeError, logger, prisma, redis } from '../globals';
 import { StatusCodes } from 'http-status-codes';
 import axios from 'axios';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import express from 'express';
 import passport from 'passport';
 import passportAnonymous from 'passport-anonymous';

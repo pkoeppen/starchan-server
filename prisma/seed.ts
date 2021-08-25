@@ -1,5 +1,5 @@
 import { PermissionLevel, Prisma, PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import faker from 'faker';
 import { render } from '../src/helpers';
