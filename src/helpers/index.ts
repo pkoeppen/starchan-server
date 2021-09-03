@@ -1,7 +1,14 @@
 import * as globals from '../globals';
-import { LogEntry, PermissionLevel, ReportReason } from '@prisma/client';
+import {
+  LogEntry,
+  PermissionLevel,
+  Post,
+  Prisma,
+  ReportReason,
+} from '@prisma/client';
 import { SafeError, logger, prisma, redis, s3, s3Bucket } from '../globals';
 import { StatusCodes } from 'http-status-codes';
+import { chunk } from 'lodash';
 import crypto from 'crypto';
 import fs from 'fs';
 import isIp from 'is-ip';
@@ -96,14 +103,27 @@ export const blacklistJwt = async function (
 };
 
 /*
- * Ensures that the given ID is valid and returns the parsed value.
+ * Ensures that the given ID is a number and returns the parsed value.
  */
-export function validateId(id: string | number, type: string): number {
+export function validateIntId(id: string | number, type: string): bigint {
   if (!id) {
     throw new SafeError(`Missing ${type} ID`, StatusCodes.BAD_REQUEST);
   }
   id = parseInt(id as string);
   if (isNaN(id)) {
+    throw new SafeError(`Invalid ${type} ID`, StatusCodes.BAD_REQUEST);
+  }
+  return BigInt(id);
+}
+
+/*
+ * Ensures that the given ID is a string and returns the parsed value.
+ */
+export function validateStringId(id: string, type: string): string {
+  if (!id) {
+    throw new SafeError(`Missing ${type} ID`, StatusCodes.BAD_REQUEST);
+  }
+  if (typeof id !== 'string') {
     throw new SafeError(`Invalid ${type} ID`, StatusCodes.BAD_REQUEST);
   }
   return id;
@@ -112,55 +132,43 @@ export function validateId(id: string | number, type: string): number {
 /*
  * Ensures that the given postId is valid and returns the parsed value.
  */
-export function validatePostId(postId: string | number): number {
-  return validateId(postId, 'post');
+export function validatePostId(postId: string | number): bigint {
+  return validateIntId(postId, 'post');
 }
 
 /*
  * Ensures that the given threadId is valid and returns the parsed value.
  */
-export function validateThreadId(threadId: string | number): number {
-  return validateId(threadId, 'thread');
+export function validateThreadId(threadId: string | number): bigint {
+  return validateIntId(threadId, 'thread');
 }
 
 /*
  * Ensures that the given boardId value is valid.
  */
 export function validateBoardId(boardId: string): string {
-  if (!boardId) {
-    throw new SafeError('Missing board ID', StatusCodes.BAD_REQUEST);
-  }
-  if (typeof boardId !== 'string') {
-    throw new SafeError('Invalid board ID', StatusCodes.BAD_REQUEST);
-  }
-  return boardId;
+  return validateStringId(boardId, 'board');
 }
 
 /*
  * Ensures that the given authorId value is valid.
  */
 export function validateAuthorId(authorId: string): string {
-  if (!authorId) {
-    throw new SafeError('Missing author ID', StatusCodes.BAD_REQUEST);
-  }
-  if (typeof authorId !== 'string') {
-    throw new SafeError('Invalid author ID', StatusCodes.BAD_REQUEST);
-  }
-  return authorId;
+  return validateStringId(authorId, 'author');
 }
 
 /*
  * Ensures that the given reportId is valid and returns the parsed value.
  */
-export function validateReportId(reportId: string | number): number {
-  return validateId(reportId, 'report');
+export function validateReportId(reportId: string): string {
+  return validateStringId(reportId, 'report');
 }
 
 /*
  * Ensures that the given banId is valid and returns the parsed value.
  */
-export function validateBanId(banId: string | number): number {
-  return validateId(banId, 'ban');
+export function validateBanId(banId: string): string {
+  return validateStringId(banId, 'ban');
 }
 
 /*
@@ -208,7 +216,7 @@ export function validateIpAddress(ipAddress: string): string {
  */
 export async function checkPermissions(
   userId: string | undefined,
-  params: Record<string, any>,
+  params: Record<string, any> | null,
   boardId: string | null,
   conditions: Record<string, PermissionLevel> & { default: PermissionLevel }
 ): Promise<void> {
@@ -244,16 +252,18 @@ export async function checkPermissions(
     [PermissionLevel.JANITOR]: 1,
   };
 
-  for (const key in params) {
-    if (!conditions.hasOwnProperty(key) || !params[key]) {
-      // If there is no condition for this parameter, or if the
-      // parameter is false, skip it.
-      continue;
-    }
-    const level = conditions[key];
-    const n = enumerated[level];
-    if (n > enumerated[highestRequiredLevel]) {
-      highestRequiredLevel = level;
+  if (params) {
+    for (const key in params) {
+      if (!conditions.hasOwnProperty(key) || !params[key]) {
+        // If there is no condition for this parameter, or if the
+        // parameter is false, skip it.
+        continue;
+      }
+      const level = conditions[key];
+      const n = enumerated[level];
+      if (n > enumerated[highestRequiredLevel]) {
+        highestRequiredLevel = level;
+      }
     }
   }
 
@@ -397,4 +407,85 @@ export async function removeFiles(files: Express.Multer.File[]): Promise<void> {
     await s3.deleteObject({ Bucket: s3Bucket, Key: `thumbs/${id}` }).promise();
     logger.debug(`Removed file ${id} from S3`);
   }
+}
+
+/*
+ * Builds post select parameters.
+ */
+export function getPostSelectParams(
+  includeSensitiveData = false,
+  boardId?: string
+): Prisma.PostSelect {
+  const postSelectParams = {
+    id: true,
+    sage: true,
+    name: true,
+    authorId: true,
+    tripcode: true,
+    createdAt: true,
+    bodyHtml: true,
+    bannedForThisPost: true,
+    files: true,
+    threadId: true,
+    boardId: true,
+    referencedBy: {
+      select: {
+        id: true,
+      },
+    },
+    user: {
+      select: {
+        username: true,
+      },
+    },
+  };
+
+  if (includeSensitiveData) {
+    (postSelectParams as Prisma.PostSelect).ipAddress = true;
+  }
+
+  if (boardId) {
+    // If this post was created by a mod of this board, select the roles.
+    // This will be used to display the moderator tag on the front end.
+    (postSelectParams.user.select as Prisma.UserSelect).roles = {
+      where: {
+        // TODO: Would be great if there were a way to do $boardId, where $boardId references
+        // the boardId of the parent object (post).
+        // Alternatively, remove this "where" and filter after retrieval.
+        OR: [{ boardId }, { level: PermissionLevel.OWNER }],
+      },
+      select: {
+        level: true,
+        boardId: true,
+      },
+    };
+  }
+
+  return postSelectParams;
+}
+
+/*
+ * Transforms raw Redis search results into post objects.
+ */
+export function parsePostSearchResults(
+  results: (string | string[])[]
+): Partial<Post>[] {
+  const posts: Partial<Post>[] = [];
+  const chunks: (string | string[])[][] = chunk(results, 2);
+  for (const [key, dataPairs] of chunks) {
+    const post: Record<string, unknown> = {};
+    for (let i = 0; i < dataPairs.length; i += 2) {
+      const prop = dataPairs[i];
+      let value: unknown = dataPairs[i + 1];
+      if (['sage', 'bannedForThisPost'].includes(prop)) {
+        value = value === 'true';
+      }
+      if (['createdAt', 'updatedAt'].includes(prop)) {
+        value = parseInt(value as string);
+      }
+      post[prop] = value;
+    }
+    posts.push(post);
+  }
+  return posts;
 }

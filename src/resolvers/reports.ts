@@ -1,6 +1,5 @@
 import { Prisma, Report, ReportReason } from '@prisma/client';
-import { SafeError, logger, prisma } from '../globals';
-import { StatusCodes } from 'http-status-codes';
+import { logger, prisma } from '../globals';
 
 /*
  * Gets multiple reports.
@@ -31,8 +30,8 @@ export async function getReports(params: {
  * Adds a new report.
  */
 export async function addReport(params: {
-  postId: number;
-  threadId: number;
+  postId: bigint;
+  threadId: bigint;
   boardId: string;
   reason: ReportReason;
   ipAddress: string;
@@ -66,7 +65,7 @@ export async function addReport(params: {
  * Deletes a report.
  */
 export async function deleteReport(params: {
-  reportId: number;
+  reportId: string;
 }): Promise<Report> {
   // Delete the report.
   const deletedReport = await prisma.report.delete({

@@ -5,6 +5,12 @@ import pino from 'pino';
 
 aws.config.update({ region: 'us-east-1' });
 
+// When using res.json(), a "don't know how to serialize a BigInt" error
+// is thrown, unless this method is defined.
+(BigInt.prototype as BigInt & { toJSON: () => string }).toJSON = function () {
+  return this.toString();
+};
+
 /*
  * Configures and returns a logger instance.
  */
@@ -38,14 +44,58 @@ export class SafeError extends Error {
  * The global Prisma client.
  */
 export const prisma = new PrismaClient();
+// export const prisma = new PrismaClient({
+//   log: [
+//     {
+//       emit: 'event',
+//       level: 'query',
+//     },
+//   ],
+// });
+// prisma.$on('query', async (e) => {
+//   console.log(`${e.query} -- ${e.params}`);
+// });
 
 /*
  * The global Redis client.
  */
 export const redis = new Redis({
-  host: 'redis',
+  host: 'redis', // Docker hostname.
   port: 6379,
 });
+
+/*
+ * Initializes Redis search indices.
+ */
+export async function createSearchIndices(): Promise<void> {
+  try {
+    // await redis.flushall();
+    await redis.send_command(
+      'FT.CREATE',
+      'idx:post',
+      'ON',
+      'hash',
+      'PREFIX',
+      1,
+      'post:',
+      'SCHEMA',
+      'bodyText',
+      'TEXT',
+      'id',
+      'NUMERIC',
+      'SORTABLE',
+      'boardId',
+      'TAG',
+      'threadId',
+      'TAG'
+    );
+  } catch (error) {
+    if (error.message !== 'Index already exists') {
+      logger.error('Error initializing Redis search indices:', error);
+      process.exit(1);
+    }
+  }
+}
 
 /*
  * The global S3 client.

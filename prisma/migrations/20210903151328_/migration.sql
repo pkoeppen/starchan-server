@@ -16,26 +16,27 @@ CREATE TABLE "Board" (
 
 -- CreateTable
 CREATE TABLE "Thread" (
-    "id" INTEGER NOT NULL,
+    "id" BIGINT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "bumpedAt" TIMESTAMP(3) NOT NULL,
+    "bumpedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "title" TEXT NOT NULL,
     "boardId" VARCHAR(4) NOT NULL,
-    "rootPostId" INTEGER NOT NULL,
+    "rootPostId" BIGINT NOT NULL,
     "views" INTEGER NOT NULL DEFAULT 0,
     "sticky" BOOLEAN NOT NULL DEFAULT false,
     "anchored" BOOLEAN NOT NULL DEFAULT false,
     "locked" BOOLEAN NOT NULL DEFAULT false,
     "cycle" BOOLEAN NOT NULL DEFAULT false,
     "archived" BOOLEAN NOT NULL DEFAULT false,
+    "willArchive" BOOLEAN NOT NULL DEFAULT false,
 
     PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Post" (
-    "id" INTEGER NOT NULL,
+    "id" BIGINT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "ipAddress" TEXT NOT NULL,
@@ -46,8 +47,8 @@ CREATE TABLE "Post" (
     "bodyMd" TEXT,
     "bannedForThisPost" BOOLEAN NOT NULL DEFAULT false,
     "sage" BOOLEAN NOT NULL DEFAULT false,
-    "threadId" INTEGER,
-    "rootPostId" INTEGER,
+    "threadId" BIGINT,
+    "rootPostId" BIGINT,
     "boardId" VARCHAR(4) NOT NULL,
     "userId" TEXT,
 
@@ -82,7 +83,7 @@ CREATE TABLE "User" (
 
 -- CreateTable
 CREATE TABLE "Role" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "boardId" VARCHAR(4),
     "level" "PermissionLevel" NOT NULL,
 
@@ -91,7 +92,7 @@ CREATE TABLE "Role" (
 
 -- CreateTable
 CREATE TABLE "LogEntry" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "userId" TEXT NOT NULL,
     "message" TEXT NOT NULL,
@@ -103,18 +104,18 @@ CREATE TABLE "LogEntry" (
 -- CreateTable
 CREATE TABLE "Stat" (
     "key" TEXT NOT NULL,
-    "value" INTEGER NOT NULL,
+    "value" BIGINT NOT NULL,
 
     PRIMARY KEY ("key")
 );
 
 -- CreateTable
 CREATE TABLE "Report" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "postId" INTEGER NOT NULL,
-    "threadId" INTEGER NOT NULL,
+    "postId" BIGINT NOT NULL,
+    "threadId" BIGINT NOT NULL,
     "boardId" VARCHAR(4) NOT NULL,
     "reason" "ReportReason" NOT NULL,
     "ipAddress" TEXT NOT NULL,
@@ -124,14 +125,14 @@ CREATE TABLE "Report" (
 
 -- CreateTable
 CREATE TABLE "Ban" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "ipAddress" TEXT NOT NULL,
     "duration" INTEGER NOT NULL,
     "universal" BOOLEAN NOT NULL,
     "reason" TEXT,
-    "postId" INTEGER,
+    "postId" BIGINT,
     "boardId" VARCHAR(4),
     "userId" TEXT NOT NULL,
 
@@ -139,44 +140,20 @@ CREATE TABLE "Ban" (
 );
 
 -- CreateTable
-CREATE TABLE "ChatRoom" (
-    "id" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "threadId" INTEGER NOT NULL,
-    "boardId" VARCHAR(4) NOT NULL,
-    "participants" TEXT[],
-
-    PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "ChatMessage" (
-    "id" SERIAL NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "body" TEXT NOT NULL,
-    "roomId" TEXT NOT NULL,
-
-    PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "_PostOnPost" (
-    "A" INTEGER NOT NULL,
-    "B" INTEGER NOT NULL
+    "A" BIGINT NOT NULL,
+    "B" BIGINT NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "_FileToPost" (
     "A" TEXT NOT NULL,
-    "B" INTEGER NOT NULL
+    "B" BIGINT NOT NULL
 );
 
 -- CreateTable
 CREATE TABLE "_RoleToUser" (
-    "A" INTEGER NOT NULL,
+    "A" TEXT NOT NULL,
     "B" TEXT NOT NULL
 );
 
@@ -229,7 +206,7 @@ ALTER TABLE "Post" ADD FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE 
 ALTER TABLE "Role" ADD FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "LogEntry" ADD FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "LogEntry" ADD FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Report" ADD FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -248,9 +225,6 @@ ALTER TABLE "Ban" ADD FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE
 
 -- AddForeignKey
 ALTER TABLE "Ban" ADD FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ChatMessage" ADD FOREIGN KEY ("roomId") REFERENCES "ChatRoom"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_PostOnPost" ADD FOREIGN KEY ("A") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;

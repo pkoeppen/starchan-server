@@ -1,5 +1,6 @@
+import * as helpers from '../helpers';
 import { Board, Prisma } from '@prisma/client';
-import { prisma } from '../globals';
+import { prisma, redis } from '../globals';
 
 /*
  * Gets multiple boards.
@@ -39,11 +40,42 @@ export async function updateBoard(params: {
   }
 
   // Update the board.
-  const updatedBoard = await prisma.board.update({
-    where: {
-      id: params.boardId,
-    },
-    data: updates,
+  const updatedBoard = await prisma.$transaction(async (prisma) => {
+    if (updates.id) {
+      const multi = redis.multi();
+      // Fetch all Redis post hashes that need to be updated.
+      const [resultCount, ...results] = await redis.send_command(
+        'FT.SEARCH',
+        'idx:post',
+        `@boardId:{${params.boardId}}`,
+        'RETURN',
+        1,
+        'id',
+        'LIMIT',
+        0,
+        999999
+      );
+
+      // Parse results.
+      const posts = helpers.parsePostSearchResults(results);
+
+      for (const post of posts) {
+        const key = `post:${post.id}`;
+        multi.hset(key, 'boardId', updates.id as string);
+      }
+
+      // Execute the multi.
+      await multi.exec();
+    }
+
+    const board = await prisma.board.update({
+      where: {
+        id: params.boardId,
+      },
+      data: updates,
+    });
+
+    return board;
   });
 
   return updatedBoard;

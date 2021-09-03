@@ -1,4 +1,6 @@
 import { PermissionLevel, Prisma, PrismaClient } from '@prisma/client';
+import { createSearchIndices, redis } from '../src/globals';
+import { omit, sampleSize } from 'lodash';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import faker from 'faker';
@@ -23,15 +25,31 @@ const ipAddresses: string[] = Array.from({ length: 10 }).map(generateIpAddress);
 /*
  * Main function.
  */
-async function main() {
+export const seed = async function (): Promise<void> {
   const start = Date.now();
 
+  await redis.flushall();
+  console.log('Flushed redis');
+
+  await prisma.stat.deleteMany();
+  console.log('Deleted all stats');
+  await prisma.logEntry.deleteMany();
+  console.log('Deleted all log entries');
   await prisma.board.deleteMany();
+  console.log('Deleted all boards');
   await prisma.thread.deleteMany();
+  console.log('Deleted all threads');
   await prisma.post.deleteMany();
+  console.log('Deleted all posts');
   await prisma.file.deleteMany();
+  console.log('Deleted all files');
   await prisma.user.deleteMany();
+  console.log('Deleted all users');
   await prisma.role.deleteMany();
+  console.log('Deleted all roles');
+
+  await createSearchIndices();
+  console.log('Created search indices');
 
   await seedStats();
   await seedBoards();
@@ -49,9 +67,9 @@ async function main() {
   });
 
   console.log('Elapsed:', (Date.now() - start) / 1000);
-}
+};
 
-main()
+seed()
   .catch((error) => {
     console.error(error);
     process.exit(1);
@@ -151,6 +169,7 @@ async function seedThreads() {
  * Seeds one thread.
  */
 async function seedThread(params: any) {
+  const multi = redis.multi();
   const threadId = ++counter;
   const ipAddress = getRandomIpAddress();
   const authorId = crypto
@@ -161,7 +180,8 @@ async function seedThread(params: any) {
   // Create root post.
   const bodyMd = generateRandomPostBody();
   const { rendered: bodyHtml } = render(bodyMd);
-  await prisma.post.create({
+  const files = getRandomFiles(1);
+  const rootPost = await prisma.post.create({
     data: {
       id: threadId,
       ipAddress,
@@ -177,7 +197,7 @@ async function seedThread(params: any) {
         },
       },
       files: {
-        connectOrCreate: getRandomFiles().map((file) => {
+        connectOrCreate: files.map((file) => {
           return {
             where: {
               id: file.id,
@@ -193,7 +213,24 @@ async function seedThread(params: any) {
         }),
       },
     },
+    include: { files: true },
   });
+
+  // Set Redis hash.
+  const bodyText = bodyHtml.replace(/<[^>]*>/g, '');
+  multi.hmset(
+    `post:${threadId}`,
+    omit(
+      {
+        ...rootPost,
+        threadId: threadId,
+        createdAt: rootPost?.createdAt?.getTime(),
+        updatedAt: rootPost?.updatedAt?.getTime(),
+        bodyText,
+      } as any,
+      ['files', 'referencedBy', 'ipAddress', 'userId']
+    )
+  );
 
   // Simulate bumpedAt date.
   const date = new Date();
@@ -268,34 +305,57 @@ async function seedThread(params: any) {
     },
   });
 
-  // Create reply posts.
-  await prisma.post.createMany({
-    data: Array.from({ length: random(1, 250) }).map((obj, i) => {
-      const ipAddress = getRandomIpAddress();
-      const authorId = crypto
-        .createHash('sha256')
-        .update(ipAddress + threadId)
-        .digest('hex');
-      const bodyMd = generateRandomPostBody();
-      const { rendered: bodyHtml } = render(bodyMd);
-      return {
-        id: ++counter,
-        rootPostId: threadId,
-        threadId: threadId,
-        boardId: params.boardId,
-        ipAddress,
-        sage: percentChance(5),
-        name: 'Anonymous',
-        authorId,
-        tripcode: undefined,
-        bodyMd,
-        bodyHtml,
-        bannedForThisPost: percentChance(5),
-      };
-    }),
+  const postData = Array.from({ length: random(1, 250) }).map((obj, i) => {
+    const ipAddress = getRandomIpAddress();
+    const authorId = crypto
+      .createHash('sha256')
+      .update(ipAddress + threadId)
+      .digest('hex');
+    const bodyMd = generateRandomPostBody();
+    const { rendered: bodyHtml } = render(bodyMd);
+
+    const post = {
+      id: ++counter,
+      rootPostId: threadId,
+      threadId: threadId,
+      boardId: params.boardId,
+      ipAddress,
+      sage: percentChance(5),
+      name: 'Anonymous',
+      authorId,
+      tripcode: undefined,
+      bodyMd,
+      bodyHtml,
+      bannedForThisPost: percentChance(5),
+    };
+
+    // Set Redis hash.
+    const bodyText = bodyHtml.replace(/<[^>]*>/g, '');
+    multi.hmset(
+      `post:${post.id}`,
+      omit(
+        {
+          ...post,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          bodyText,
+        } as any,
+        ['files', 'referencedBy', 'ipAddress', 'userId']
+      )
+    );
+
+    return post;
   });
 
-  console.log(`Seeded thread /${params.boardId}/${threadId}/`);
+  // Create reply posts.
+  await prisma.post.createMany({ data: postData });
+
+  // Execute multi.
+  await multi.exec();
+
+  console.log(
+    `Seeded thread /${params.boardId}/${threadId}/ (${rootPost.files.length})`
+  );
 }
 
 /*
@@ -462,9 +522,8 @@ function getRandomFiles(minFileCount = 1) {
     'surfers.jpg',
   ];
 
-  const files = Array.from({ length: random(minFileCount, 5) });
-  return files.map(() => {
-    const filename = fileKeys[Math.floor(Math.random() * fileKeys.length)];
+  const files = sampleSize(fileKeys, random(minFileCount, 5));
+  return files.map((filename) => {
     return {
       id: filename,
       size: Math.floor(Math.random() * 500000) + 10000,

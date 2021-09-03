@@ -57,7 +57,7 @@ async function addReport(req: Request, res: Response, next: NextFunction) {
     }
 
     const boardId = post.boardId;
-    const threadId = (post.threadId || post.rootThread?.id) as number;
+    const threadId = (post.threadId || post.rootThread?.id) as bigint;
     const ipAddress = req.ipAddress;
 
     // Add the report.
@@ -94,14 +94,9 @@ async function deleteReport(req: Request, res: Response, next: NextFunction) {
 
     const { boardId } = report;
 
-    // Build params.
-    const params = {
-      reportId,
-    };
-
     // Check permissions.
     const userId = req.user?.id;
-    await helpers.checkPermissions(userId, params, boardId, {
+    await helpers.checkPermissions(userId, null, boardId, {
       default: PermissionLevel.MODERATOR,
     });
 

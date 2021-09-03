@@ -35,7 +35,7 @@ export async function addBan(params: {
   ipAddress: string;
   duration: number;
   reason: string | null;
-  postId: number | null;
+  postId: bigint | null;
   boardId: string | null;
   universal: boolean;
   deletePost: boolean;
@@ -100,7 +100,7 @@ export async function addBan(params: {
 /*
  * Deletes a ban.
  */
-export async function deleteBan(params: { banId: number }): Promise<Ban> {
+export async function deleteBan(params: { banId: string }): Promise<Ban> {
   // Delete the ban.
   const deletedBan = await prisma.ban.delete({
     where: {

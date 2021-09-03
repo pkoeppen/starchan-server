@@ -1,3 +1,8 @@
+// Prisma messes up hot-reloading for some reason, and this is necessary.
+process.on('SIGTERM', () => {
+  process.exit();
+});
+
 // eslint-disable-next-line
 require('dotenv').config();
 

@@ -1,9 +1,9 @@
 import * as helpers from '../helpers';
 import * as resolvers from '../resolvers';
 import { NextFunction, Request, Response } from 'express';
+import { PermissionLevel, Prisma } from '@prisma/client';
 import { SafeError, logger, prisma } from '../globals';
 import { attach, auth, recaptcha } from '../middleware/auth';
-import { PermissionLevel } from '@prisma/client';
 import { Router } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import crypto from 'crypto';
@@ -44,6 +44,45 @@ async function resolvePostUri(req: Request, res: Response, next: NextFunction) {
 }
 
 /*
+ * Gets multiple posts.
+ */
+router.get('/:boardId', attach, getPostsByPage);
+async function getPostsByPage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const where: Prisma.PostWhereInput = {};
+
+    // Validate 'page' query param.
+    const page = req.query.page ? parseInt(req.query.page as string) : 1;
+    if (!page || page < 1 || page > 10) {
+      throw new SafeError('Invalid page number', StatusCodes.BAD_REQUEST);
+    }
+
+    // Validate 'boardId' query param.
+    const boardId = req.query.boardId
+      ? helpers.validateBoardId(req.params.boardId)
+      : null;
+
+    if (boardId && boardId !== 'all') {
+      await helpers.assertBoardExists(boardId);
+      where.boardId = boardId;
+    }
+
+    // Get post data.
+    const includeSensitiveData = !!req.user;
+    const data = await resolvers.getPostsByPage(
+      page,
+      where,
+      includeSensitiveData
+    );
+
+    // Send the response.
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/*
  * Adds a post reply to the given thread.
  */
 router.put('/', recaptcha, uploadMiddleware, attach, addPost);
@@ -67,6 +106,9 @@ async function addPost(req: Request, res: Response, next: NextFunction) {
     });
     if (!thread) {
       throw new SafeError('Thread does not exist', StatusCodes.NOT_FOUND);
+    }
+    if (thread.archived) {
+      throw new SafeError('Thread is archived', StatusCodes.LOCKED);
     }
     if (thread.locked) {
       throw new SafeError('Thread is locked', StatusCodes.LOCKED);
@@ -107,7 +149,7 @@ async function addPost(req: Request, res: Response, next: NextFunction) {
     };
 
     // Add the post.
-    const post = await resolvers.addPost(params, files);
+    const post = await resolvers.addPost(params, files, thread);
 
     // Send the response.
     res.status(201).json(post);
