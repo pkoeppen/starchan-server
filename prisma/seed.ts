@@ -9,12 +9,24 @@ import { render } from '../src/helpers';
 const prisma = new PrismaClient();
 
 const boards = [
+  { boardId: '3d', title: 'Computer Graphics' },
+  { boardId: 'art', title: 'Artwork' },
+  { boardId: 'auto', title: 'Automotive' },
   { boardId: 'b', title: 'Random' },
+  { boardId: 'biz', title: 'Business & Finance' },
+  { boardId: 'diy', title: 'Do-It-Yourself' },
+  { boardId: 'fit', title: 'Health & Fitness' },
   { boardId: 'g', title: 'Technology' },
-  { boardId: 'gif', title: 'Gif & Video' },
+  { boardId: 'his', title: 'History' },
+  { boardId: 'p', title: 'Photography' },
+  { boardId: 'int', title: 'International' },
   { boardId: 'k', title: 'Weapons' },
+  { boardId: 'mu', title: 'Music' },
   { boardId: 'pol', title: 'Politics' },
+  { boardId: 'tv', title: 'Television & Film' },
   { boardId: 'v', title: 'Video Games' },
+  { boardId: 'vid', title: 'Video & WebM' },
+  { boardId: 'w', title: 'Wallpapers' },
   { boardId: 'x', title: 'Paranormal' },
 ];
 

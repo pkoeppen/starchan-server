@@ -410,9 +410,16 @@ async function assembleFiles(
 ) {
   const rootPostIds = threads.map((thread) => parseInt(thread.id as any));
 
+  if (!rootPostIds.length) {
+    return;
+  }
+
+  const args = Array.from(rootPostIds)
+    .map((_, i) => `$${i + 1}`)
+    .join(',');
   const results = await prisma.$queryRaw(
     'SELECT "public"."_FileToPost"."B", "public"."_FileToPost"."A" ' +
-      'FROM "public"."_FileToPost" WHERE "public"."_FileToPost"."B" IN ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+      `FROM "public"."_FileToPost" WHERE "public"."_FileToPost"."B" IN (${args})`,
     ...rootPostIds
   );
 
